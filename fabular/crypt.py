@@ -7,7 +7,7 @@ fabular - crypt
 import os
 import hashlib
 from Crypto import Random
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
 from Crypto.PublicKey import RSA
 from fabular.comm import fab_log
@@ -15,7 +15,10 @@ from fabular.utils import mkdir_p
 import fabular.config as fc
 
 
-def generate_RSAk(size=fc.RSA_bits,
+CCSEQ = b':::'  # concat sequence
+
+
+def generate_RSAk(size=fc.RSA_BITS,
                   export_id='id',
                   export_dir='.fabular/rsa'):
     """
@@ -228,19 +231,185 @@ def decrypt_msg(message, key=None, **kwargs):
 
 class Secrets(object):
     """
-    Simple data structure which holds secrets
+    Data structure to facilitate encryption handshake
     """
-    def __init__(self):
-        pass
+    def __init__(self, private=None,
+                 public=None, public_hash=None,
+                 session=None, session_hash=None):
+        self.public = public
+        self.public_hash = public_hash
+        self.private = private
+        self.session = session
+        self.session_hash = session_hash
+
+    @classmethod
+    def from_keys(cls, keys):
+        pub, hash_key, sess_key, sess_hash = keys.split(CCSEQ)
+        if check_hash(pub, hash_key) and check_hash(sess_key, sess_hash):
+            return cls(public=pub, public_hash=hash_key,
+                       session=sess_key, session_hash=sess_hash)
+        else:
+            return None
+
+    @classmethod
+    def from_pubkey(cls, pubkey):
+        pub, hash_key = pubkey.split(CCSEQ)
+        if check_hash(pub, hash_key):
+            return cls(public=pub, public_hash=hash_key)
+        else:
+            return None
+
+    @classmethod
+    def from_sesskey(cls, session):
+        sess_key, sess_hash = session.split(CCSEQ)
+        if check_hash(sess_key, sess_hash):
+            return cls(session)
+        else:
+            return None
+
+    @property
+    def keys(self):
+        return CCSEQ.join([self.public, self.public_hash, self.session, self.session_hash])
+
+    @keys.setter
+    def keys(self, keys):
+        self.public, self.public_hash, self.session, self.session_hash = \
+            keys.split(CCSEQ)
+
+    @property
+    def pubkey(self):
+        return CCSEQ.join([self.public, self.public_hash])
+
+    @pubkey.setter
+    def pubkey(self, pubkey):
+        self.public, self.public_hash = pubkey.split(CCSEQ)
+
+    @property
+    def sesskey(self):
+        return CCSEQ.join([self.session, self.session_hash])
+
+    @sesskey.setter
+    def sesskey(self, sesskey):
+        self.session, self.session_hash = sesskey.split(CCSEQ)
+
+    def check_hash(self):
+        hash_check = False
+        if self.public and self.public_hash:
+            hash_check = check_hash(self.public, self.public_hash)
+        if self.session and self.session_hash:
+            hash_check = check_hash(self.session, self.session_hash)
+        return hash_check
+
+    @property
+    def key128(self):
+        if self.session and len(self.session) == 8:
+            return self.session + self.session[::-1]
+        elif self.session and len(self.session) == 16:
+            return self.session
+        else:
+            return Random.get_random_bytes(16)
+
+    @property
+    def RSA(self):
+        rsa = {}
+        if self.private:
+            rsa['private'] = RSA.importKey(self.private)
+            rsa['priv'] = rsa['private']
+        if self.public:
+            rsa['public'] = RSA.importKey(self.public)
+            rsa['pub'] = rsa['public']
+        return rsa
+
+    def hybrid_encrypt(self, data, session_key=None, encoding=fc.DEFAULT_ENC):
+        """
+        Hybrid encryption of a message using RSA with PKCS#1 OAEP/AES cipher
+
+        Args:
+            data <str> - message to be encrypted
+
+        Kwargs:
+            session_key <bytes> - TODO
+            encoding <str> - string coding
+
+        Return:
+            enc_msg <bytes> - encrypted message
+        """
+        if isinstance(data, str):
+            data = data.encode(encoding)
+        if session_key is None or len(session_key) != 16:
+            session_key = self.key128
+        rsa_cipher = PKCS1_OAEP.new(self.RSA['public'])
+        enc_session_key = rsa_cipher.encrypt(session_key)
+        aes_cipher = AES.new(session_key, AES.MODE_EAX)
+        enc_msg, tag = aes_cipher.encrypt_and_digest(data)
+        return CCSEQ.join([enc_session_key, aes_cipher.nonce, tag, enc_msg])
+
+    def hybrid_decrypt(self, encrypted_data, encoding=fc.DEFAULT_ENC):
+        """
+        Hybrid decryption of an encoded message using RSA with PKCS#1 OAEP/AES cipher
+
+        Args:
+            data <str> - message to be encrypted
+
+        Kwargs:
+            session_key <bytes> - TODO
+            encoding <str> - string coding
+
+        Return:
+            msg_enc <bytes> - encrypted message
+        """
+        if self.private is None:
+            return b''
+        if isinstance(encrypted_data, (tuple, list)):
+            enc_session_key, nonce, tag, enc_msg = encrypted_data
+        elif isinstance(encrypted_data, str):
+            encrypted_data = encrypted_data.encode(encoding)
+            enc_session_key, nonce, tag, enc_msg = encrypted_data.split(CCSEQ)
+        else:
+            enc_session_key, nonce, tag, enc_msg = encrypted_data.split(CCSEQ)
+        rsa_cipher = PKCS1_OAEP.new(self.RSA['private'])
+        session_key = rsa_cipher.decrypt(enc_session_key)
+        aes_cipher = AES.new(session_key, AES.MODE_EAX, nonce)
+        data = aes_cipher.decrypt_and_verify(enc_msg, tag)
+        return data
+
+    def AES_encrypt(self, message, key=None,
+                    block_size=AES.block_size,
+                    encoding=fc.DEFAULT_ENC):
+        if not message:
+            return message
+        key = self.session if key is None else key
+        if self.session is None:
+            fab_log('Encryption failed! Proceeding without encryption...',
+                    verbose_mode=4)
+            return message
+        message = block_pad(message, block_size=block_size, encoding=encoding)
+        cipher = AES_from_key(key)
+        msg_enc = cipher.encrypt(message)
+        return msg_enc
+
+    def AES_decrypt(self, message, key=None,
+                    block_size=AES.block_size,
+                    encoding=fc.DEFAULT_ENC):
+        if not message:
+            return message
+        key = self.session if key is None else key
+        if self.session is None:
+            fab_log('Decryption requires a cipher key!', verbose_mode=4)
+            return message
+        cipher = AES_from_key(key)
+        msg_dec = cipher.decrypt(message)
+        msg_dec = block_unpad(msg_dec, block_size=block_size, encoding=encoding)
+        return msg_dec
 
 
 if __name__ == "__main__":
     pub, priv = generate_RSAk(export_id='server')
-    # hashpub = get_hash(pub)
     print(pub)
+    print(priv)
+    # hashpub = get_hash(pub)
     # print(hashpub)
     # print(check_hash(pub, hashpub))
-    print(priv)
 
     rand8, hash8 = session_keys()
     print(rand8)

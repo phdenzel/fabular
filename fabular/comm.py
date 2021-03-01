@@ -10,7 +10,23 @@ import logging
 import fabular.config as fc
 from fabular.config import MSG_PREFIX as PREFIX
 from fabular.config import MSG_SUFFIX as SUFFIX
-from fabular.config import SYS_MSGS as FAB_MSGS
+
+fab_msgs = {
+    'CONN': '{prefix}Connected with {{}}{suffix}',
+    'USRN': '{prefix}Username set to {{}}{suffix}',
+    'CUSR': '{prefix}Username already taken, choose another{suffix}',
+    'DCRY': '{prefix}Setting up encryption{suffix}',
+    'FDCR': '{prefix}Encryption setup failed, proceeding without{suffix}',
+    'CHAT': '{prefix}{{}}{suffix}',
+    'ENTR': '{prefix}{{}} entered the session{suffix}',
+    'EXIT': '{prefix}{{}} has left fabular{suffix}',
+    'INIS': '{prefix}Server is listening{suffix}',
+    'ENDS': '{prefix}\nServer is shutting down{suffix}',
+}
+
+cmd_signals = {
+    'Q': ['\q', '\quit', '\exit', '\leave'],
+}
 
 
 def query_msg(query, encoding=fc.DEFAULT_ENC):
@@ -28,7 +44,10 @@ def query_msg(query, encoding=fc.DEFAULT_ENC):
     """
     q_msgs = {
         'Q:USERNAME': 'Q:USERNAME'.encode(encoding),
-        'Q:NAME_TAKEN': 'Q:NAME_TAKEN'.encode(encoding),
+        'Q:CHUSERNAME': 'Q:CHUSERNAME'.encode(encoding),
+        'Q:PUBKEY': 'Q:PUBKEY'.encode(encoding),
+        'Q:SESSION_KEY': 'Q:SESSION_KEY'.encode(encoding),
+        'Q:ACCEPT': 'Q:ACCEPT'.encode(encoding),
         'Q:KILL': 'Q:KILL'.encode(encoding),
     }
     if not query.startswith('Q:'):
@@ -100,13 +119,13 @@ def fab_msg(flag, *args, **kwargs):
     """
     if not args:
         args = ('',)
-    msg = FAB_MSGS[flag].format(prefix=kwargs.pop('prefix', PREFIX),
+    msg = fab_msgs[flag].format(prefix=kwargs.pop('prefix', PREFIX),
                                 suffix=kwargs.pop('suffix', SUFFIX))
     msg = msg.format(*args)
     return msg
 
 
-def fab_log(message, *args, verbose_mode=3, encoding=fc.DEFAULT_ENC):
+def fab_log(message, *args, verbose_mode=3, encoding=fc.DEFAULT_ENC, **kwargs):
     """
     Log system messages in the corresponding verbose mode
 
@@ -120,12 +139,12 @@ def fab_log(message, *args, verbose_mode=3, encoding=fc.DEFAULT_ENC):
     Return:
         None
     """
-    if message in FAB_MSGS:
+    if message in fab_msgs:
         message = fab_msg(message, *args)
     if isinstance(message, bytes):
         message = message.decode(encoding)
     if verbose_mode == 3:
-        print(message)
+        print(message, **kwargs)
     else:
         lvl = verbose_level(verbose_mode)
         if lvl > 0:

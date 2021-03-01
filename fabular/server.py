@@ -5,21 +5,16 @@ fabular - server
 @author: phdenzel
 
 Strategy:
-  1) Generate RSA key pairs and public hash.
-     If newly generated, save them in files .fabular/rsa/id_rsa.pub and id_rsa
-     > generate_RSAk(pub, priv)
-  3) Generate session key and hash
-     > session_keys()
-  4) Set up server socket
-     > init_server()
-  5) Start handshake thread
-     > threading.Thread(target=handshake)
-  6) In handshake thread:
-     Accept new connection iff
-        - unique username is given
-        - TODO
+  Accept new connection iff
+    - unique username is given
+    - RSA key transmission matches
+      - client -> server: public+hash_key(client) -> client_secrets.from_pubkey()
+      - server -> client: client_secrets.RSA['pub'].encrypt(keys(server)) -> server_secrets
+      - Server uses public key and encrypts: key8 + hash8 + server public + hash key
+      - Client receives
 """
 import sys
+import time
 import threading
 import socket
 import fabular.config as fc
@@ -30,6 +25,7 @@ from fabular.comm import query_msg
 from fabular.client import Clients
 from fabular.crypt import generate_RSAk, session_keys
 from fabular.crypt import get_hash, check_hash
+from fabular.crypt import Secrets
 # from fabular.crypt import encrypt_msg
 # from fabular.crypt import decrypt_msg
 if HOST is None:
@@ -72,9 +68,11 @@ def broadcast(message):
     """
     if isinstance(message, str):
         message = message.encode(fc.DEFAULT_ENC)
-    for client in clients.values():
-        if client:
-            client.send(message)
+    for username in clients:
+        if clients[username]:
+            if clients.is_encrypted[username]:
+                message = clients.secret[username].AES_encrypt(message)
+            clients[username].send(message)
     fab_log(message, verbose_mode=fc.VERBOSE)
 
 
@@ -91,8 +89,9 @@ def handle(client_key):
     while True:
         try:
             message = clients[client_key].recv(1024)
-            # decode message here
             if message:
+                if clients.is_encrypted[client_key]:
+                    message = clients.secret[client_key].AES_decrypt(message)
                 message = fab_msg('CHAT', message.decode(fc.DEFAULT_ENC),
                                   prefix=f'{client_key}> ', suffix='')
                 broadcast(message)
@@ -106,7 +105,7 @@ def handle(client_key):
             break
 
 
-def handshake(keys=None):
+def handshake(secrets=None):
     """
     Server main loop: Accept and set up new incoming connections
 
@@ -120,60 +119,68 @@ def handshake(keys=None):
     while True:
         try:
             client, address = server.accept()
+            fab_log('CONN', address, **v)
+
             # set up username
+            client.send(query_msg('Q:USERNAME'))
             while True:
-                client.send(query_msg('Q:USERNAME'))
-                fab_log('CONN', address, **v)
                 username = client.recv(1024).decode(fc.DEFAULT_ENC)
                 if username not in clients:
                     break
                 else:
-                    chusr_msg = fab_msg('CUSR')
-                    client.send(chusr_msg)
-            # encryption handshake
-            key = keys['RSA.pub'] + b':' + keys['RSA.hash']
-            
-            # server.send()
-            # if fc.RSA_bits >= 8192:
-            # add username to list
-            clients[username] = client
-            # announce entry of user
+                    client.send(query_msg('Q:CHUSERNAME'))
             fab_log('USRN', username, **v)
-            broadcast(fab_msg('ENTR', username))
+
+            # encryption handshake
+            client.send(query_msg('Q:PUBKEY'))
+            client_pubkey = client.recv(fc.RSA_BITS//2)
+            client_secrets = Secrets.from_pubkey(client_pubkey)
+            client_secrets.sesskey = secrets.sesskey
+            if client_secrets is None or not client_secrets.check_hash():
+                pass  # close client connection
+            client.send(query_msg('Q:SESSION_KEY'))  # ask for encrypted server keys
+            server_keys = client_secrets.hybrid_encrypt(secrets.keys)
+            status = client.recv(1024)
+            fab_log(status, verbose_mode=3)
+            client.send(server_keys)
+            status = client.recv(8)  # get confirmation of encryption setup
+            is_encrypted = bool(int(status))
+
+            # add username to table
+            clients[username] = client
+            clients.address[username] = address
+            clients.secret[username] = client_secrets
+            clients.is_encrypted[username] = is_encrypted
+
+            # announce entry of user
+            client.send(query_msg('Q:ACCEPT'))
+            fab_log(client.recv(256), verbose_mode=3)
+            broadcast(fab_msg('ENTR', username))  # TODO: first failure of encryption
             handle_thread = threading.Thread(target=handle, args=(username,))
             handle_thread.start()
+
         except KeyboardInterrupt:
             fab_log('ENDS', verbose_mode=3)
             return
 
 
 if __name__ == "__main__":
-    import shutil
-    shutil.rmtree('.fabular', ignore_errors=True)
+
     # RSA keys
-    pub, priv = generate_RSAk(fc.RSA_bits, export_id='server')
+    pub, priv = generate_RSAk(export_id='server')
+    hashpub = get_hash(pub)
     key8, hash8 = session_keys()
-    keys = {
-        'RSA.pub': pub,
-        'RSA.priv': priv,
-        'RSA.hash': get_hash(pub),
-        'session64': key8,
-        'hash64': hash8
-    }
-    print(len(pub), len(priv))
-    print(len(pub), len(get_hash(pub)))
-    print(len(key8), len(hash8))
+    secrets = Secrets(priv, pub, hashpub, key8, hash8)
+    if not secrets.check_hash():
+        sys.exit()
 
     # Set up server socket
-    server = init_server(HOST, PORT, max_conn=16)
-    print(server)
     clients = Clients()
-
-    sys.exit()
-
+    server = init_server(HOST, PORT, max_conn=16)
     fab_log('INIS', verbose_mode=3)
 
-    accept_thread = threading.Thread(target=handshake, args=())
+    # start accept thread
+    accept_thread = threading.Thread(target=handshake, args=(secrets,))
     accept_thread.start()
     accept_thread.join()
     server.close()

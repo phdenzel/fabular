@@ -10,23 +10,13 @@ HOST = None
 PORT = '64242'
 
 # MISC
-DEFAULT_ENC = 'ascii'
+DEFAULT_ENC = 'utf-8'
 
 # ENCRYPTION
-RSA_bits = 4096  # 2048
+RSA_BITS = 1024  # larger blocks mean exponentially slower encryption
 
 # LOGGING
 VERBOSE = 3
 LOG_FILE = None
 MSG_PREFIX = ''
 MSG_SUFFIX = '...'
-SYS_MSGS = {
-    'CONN': '{prefix}Connected with {{}}{suffix}',
-    'USRN': '{prefix}Username set to {{}}{suffix}',
-    'CUSR': '{prefix}Username already taken, choose another{suffix}',
-    'ENTR': '{prefix}{{}} entered the session{suffix}',
-    'EXIT': '{prefix}{{}} has left fabular{suffix}',
-    'CHAT': '{prefix}{{}}{suffix}',
-    'INIS': '{prefix}Server is listening{suffix}',
-    'ENDS': '{prefix}\nServer is shutting down{suffix}',
-}

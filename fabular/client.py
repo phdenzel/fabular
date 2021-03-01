@@ -4,7 +4,7 @@ fabular - client
 
 @author: phdenzel
 """
-# import sys
+import sys
 import socket
 import threading
 import fabular.config as fc
@@ -12,11 +12,12 @@ from fabular.config import HOST
 from fabular.config import PORT
 from fabular.comm import fab_log
 from fabular.comm import is_query
+from fabular.comm import cmd_signals
+from fabular.crypt import generate_RSAk
+from fabular.crypt import get_hash
+from fabular.crypt import Secrets
 if HOST is None:
     HOST = fc.LOCALHOST
-
-
-stop_threads = False
 
 
 class Clients(object):
@@ -24,6 +25,7 @@ class Clients(object):
         self.socket = {}
         self.address = {}
         self.secret = {}
+        self.is_encrypted = {}
 
     def __getitem__(self, key):
         return self.socket[key]
@@ -34,13 +36,14 @@ class Clients(object):
     def __iter__(self):
         return self.socket.__iter__()
 
-    def __next__(self):
-        return self.socket.__next__()
+    def __contains__(self, key):
+        return self.socket.__contains__(key)
 
     def pop(self, key):
         socket = self.socket.pop(key)
         self.address.pop(key)
         self.secret.pop(key)
+        self.is_encrypted.pop(key)
         return socket
 
 
@@ -66,51 +69,95 @@ def connect_server(host, port):
     return client
 
 
-def receive():
+def receive(secrets=None):
     """
     TODO
     """
-    global stop_threads
+    global username, accepted, decode, stop_threads
     while True:
         if stop_threads:
             break
         try:
-            message = client.recv(1024)
+            message = client.recv(fc.RSA_BITS)
             if message:
                 if is_query(message, 'Q:USERNAME'):
                     client.send(username.encode(fc.DEFAULT_ENC))
+                elif is_query(message, 'Q:CHUSERNAME'):
+                    fab_log('CUSR', verbose_mode=3)
+                    username = input('Enter another username: ')
+                    client.send(username.encode(fc.DEFAULT_ENC))
+                elif is_query(message, 'Q:PUBKEY'):
+                    client.send(secrets.pubkey)
+                elif is_query(message, 'Q:SESSION_KEY'):
+                    client.send(f'{username}: Setting up encryption...'.encode(fc.DEFAULT_ENC))
+                    fab_log('DCRY', verbose_mode=3)
+                    enc_msg = client.recv(2048)
+                    server_keys = secrets.hybrid_decrypt(enc_msg)
+                    server_secrets = Secrets.from_keys(server_keys)
+                    secrets.sesskey = server_secrets.sesskey
+                    if server_secrets is not None:
+                        decode = True
+                        client.send(b'1')
+                    else:
+                        fab_log('FDCR', verbose_mode=3)
+                        client.send(b'0')
+                elif is_query(message, 'Q:ACCEPT'):
+                    accepted = True
+                    client.send(f'{username}: Starting Thread(write)...'.encode(fc.DEFAULT_ENC))
                 elif is_query(message, 'Q:KILL'):
                     pass
                 else:
-                    print(message.decode(fc.DEFAULT_ENC))
+                    if decode:
+                        message = secrets.AES_decrypt(message)
+                    fab_log(message.decode(fc.DEFAULT_ENC))
         except Exception as ex:
-            fab_log('client.receive() encountered an error!\n'+ex.message, 5)
+            fab_log('client.receive() encountered an error!\n'+ex.message, verbose_mode=5)
             stop_threads = True
             client.close()
             break
 
 
-def write():
+def write(secrets=None):
     """
     TODO
     """
+    global accepted, decode, stop_threads
+
     while True:
         if stop_threads:
             break
-        message = input("")
-        client.send(message.encode(fc.DEFAULT_ENC))
+        if not accepted:
+            continue
+        message = input("\033[1A")
+        if message:
+            if any([s in message.lower() for s in cmd_signals['Q']]):
+                stop_threads = True
+            if decode:
+                message = secrets.AES_encrypt(message.encode(fc.DEFAULT_ENC))
+            else:
+                message = message.encode(fc.DEFAULT_ENC)
+            client.send(message)
 
 
 if __name__ == "__main__":
 
+    stop_threads = False
+    accepted = False
+    decode = False
     username = input('Enter your username: ')
-    
-    client_socket = connect_server(HOST, PORT)
-    receive_thread = threading.Thread(target=receive)
+
+    # RSA keys
+    pub, priv = generate_RSAk(export_id=f'{username}')
+    hash_pub = get_hash(pub)
+    secrets = Secrets(private=priv, public=pub, public_hash=hash_pub)
+    if not secrets.check_hash():
+        sys.exit()
+
+    # login to server
+    client = connect_server(HOST, PORT)
+
+    receive_thread = threading.Thread(target=receive, args=(secrets,))
     receive_thread.start()
 
-    write_thread = threading.Thread(target=write)
+    write_thread = threading.Thread(target=write, args=(secrets,))
     write_thread.start()
-
-    # receive_thread.join()
-    # write_thread.join()
