@@ -18,7 +18,7 @@ import fabular.config as fc
 CCSEQ = b':::'  # concat sequence
 
 
-def generate_RSAk(size=fc.RSA_BITS,
+def generate_RSAk(size=fc.BLOCK_SIZE,
                   export_id='id',
                   export_dir='.fabular/rsa'):
     """
@@ -269,7 +269,10 @@ class Secrets(object):
 
     @property
     def keys(self):
-        return CCSEQ.join([self.public, self.public_hash, self.session, self.session_hash])
+        if self.public is not None and self.public_hash is not None\
+           and self.session is not None and self.session_hash is not None:
+            return CCSEQ.join([self.public, self.public_hash, self.session, self.session_hash])
+        return None
 
     @keys.setter
     def keys(self, keys):
@@ -278,7 +281,9 @@ class Secrets(object):
 
     @property
     def pubkey(self):
-        return CCSEQ.join([self.public, self.public_hash])
+        if self.public is not None and self.public_hash is not None:
+            return CCSEQ.join([self.public, self.public_hash])
+        return None
 
     @pubkey.setter
     def pubkey(self, pubkey):
@@ -286,7 +291,9 @@ class Secrets(object):
 
     @property
     def sesskey(self):
-        return CCSEQ.join([self.session, self.session_hash])
+        if self.session is not None and self.session_hash is not None:
+            return CCSEQ.join([self.session, self.session_hash])
+        return None
 
     @sesskey.setter
     def sesskey(self, sesskey):
@@ -421,7 +428,7 @@ if __name__ == "__main__":
     print(cipher)
     print(cipher.block_size, AES.block_size)
 
-    test_msg = "Eureka! Encrypt/Decrypt success!"
+    test_msg = "Eureka! Encrypt+Decrypt success!"
     msg_enc = encrypt_msg(test_msg, key=rand8)
     msg_dec = decrypt_msg(msg_enc, rand8)
     print(msg_enc)

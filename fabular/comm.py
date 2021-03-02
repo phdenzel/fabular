@@ -17,6 +17,9 @@ fab_msgs = {
     'CUSR': '{prefix}Username already taken, choose another{suffix}',
     'DCRY': '{prefix}Setting up encryption{suffix}',
     'FDCR': '{prefix}Encryption setup failed, proceeding without{suffix}',
+    'WRYT': ('{prefix}Ready to chat.\n'
+             'Should you wish to leave, '
+             'type one of [\q | \quit | \exit | \leave]{suffix}'),
     'CHAT': '{prefix}{{}}{suffix}',
     'ENTR': '{prefix}{{}} entered the session{suffix}',
     'EXIT': '{prefix}{{}} has left fabular{suffix}',

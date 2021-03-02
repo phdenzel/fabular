@@ -7,13 +7,15 @@ fabular - config
 # SERVER
 LOCALHOST = '127.0.0.1'
 HOST = None
-PORT = '64242'
+PORT = '50120'
+MAX_CONN = 16
 
 # MISC
 DEFAULT_ENC = 'utf-8'
 
 # ENCRYPTION
-RSA_BITS = 1024  # larger blocks mean exponentially slower encryption
+ENCRYPTION = True
+BLOCK_SIZE = 1024  # larger blocks = exponentially slower encryption
 
 # LOGGING
 VERBOSE = 3

@@ -4,35 +4,29 @@ fabular - server
 
 @author: phdenzel
 
-Strategy:
-  Accept new connection iff
-    - unique username is given
-    - RSA key transmission matches
-      - client -> server: public+hash_key(client) -> client_secrets.from_pubkey()
-      - server -> client: client_secrets.RSA['pub'].encrypt(keys(server)) -> server_secrets
-      - Server uses public key and encrypts: key8 + hash8 + server public + hash key
-      - Client receives
+TODO:
+    - fix for clean exit
+    - investigate CPU spike after client exit
 """
 import sys
-import time
 import threading
 import socket
-import fabular.config as fc
-from fabular.config import HOST
-from fabular.config import PORT
-from fabular.comm import fab_msg, fab_log
+from fabular.comm import fab_msg
+from fabular.comm import fab_log
 from fabular.comm import query_msg
 from fabular.client import Clients
 from fabular.crypt import generate_RSAk, session_keys
-from fabular.crypt import get_hash, check_hash
+from fabular.crypt import get_hash
 from fabular.crypt import Secrets
-# from fabular.crypt import encrypt_msg
-# from fabular.crypt import decrypt_msg
+from fabular.utils import assign_color, ansi_map
+from fabular.config import HOST
+from fabular.config import PORT
+import fabular.config as fc
 if HOST is None:
     HOST = fc.LOCALHOST
 
 
-def init_server(host, port, max_conn=16):
+def init_server(host, port, max_conn=fc.MAX_CONN):
     """
     Initialize server and bind to given address
 
@@ -56,7 +50,7 @@ def init_server(host, port, max_conn=16):
     return server
 
 
-def broadcast(message):
+def broadcast(data):
     """
     Broadcast a message to all clients
 
@@ -66,14 +60,16 @@ def broadcast(message):
     Kwargs/Return:
         None
     """
-    if isinstance(message, str):
-        message = message.encode(fc.DEFAULT_ENC)
+    if isinstance(data, str):
+        data = data.encode(fc.DEFAULT_ENC)
     for username in clients:
         if clients[username]:
             if clients.is_encrypted[username]:
-                message = clients.secret[username].AES_encrypt(message)
+                message = clients.secret[username].AES_encrypt(data)
+            else:
+                message = data
             clients[username].send(message)
-    fab_log(message, verbose_mode=fc.VERBOSE)
+    fab_log(data, verbose_mode=fc.VERBOSE)
 
 
 def handle(client_key):
@@ -88,12 +84,16 @@ def handle(client_key):
     """
     while True:
         try:
-            message = clients[client_key].recv(1024)
-            if message:
+            data = clients[client_key].recv(1024)
+            if data:
                 if clients.is_encrypted[client_key]:
-                    message = clients.secret[client_key].AES_decrypt(message)
-                message = fab_msg('CHAT', message.decode(fc.DEFAULT_ENC),
-                                  prefix=f'{client_key}> ', suffix='')
+                    message = clients.secret[client_key].AES_decrypt(data)
+                else:
+                    message = data.decode(fc.DEFAULT_ENC)
+                message = fab_msg('CHAT', message,
+                                  prefix='{}{}>{} '.format(ansi_map[clients.color[client_key]],
+                                                           client_key, ansi_map['reset']),
+                                  suffix='')
                 broadcast(message)
         except Exception as ex:
             client = clients.pop(client_key)
@@ -101,7 +101,7 @@ def handle(client_key):
                 client.close()
                 exit_msg = fab_msg('EXIT', client_key)
                 broadcast(exit_msg)
-            fab_log(ex.message, verbose_mode=5)
+            fab_log('fabular.server.handle: {}'.format(ex), verbose_mode=5)
             break
 
 
@@ -133,12 +133,12 @@ def handshake(secrets=None):
 
             # encryption handshake
             client.send(query_msg('Q:PUBKEY'))
-            client_pubkey = client.recv(fc.RSA_BITS//2)
+            client_pubkey = client.recv(fc.BLOCK_SIZE//2)
             client_secrets = Secrets.from_pubkey(client_pubkey)
-            client_secrets.sesskey = secrets.sesskey
             if client_secrets is None or not client_secrets.check_hash():
                 pass  # close client connection
-            client.send(query_msg('Q:SESSION_KEY'))  # ask for encrypted server keys
+            client_secrets.sesskey = secrets.sesskey
+            client.send(query_msg('Q:SESSION_KEY'))  # signal for encrypted server keys
             server_keys = client_secrets.hybrid_encrypt(secrets.keys)
             status = client.recv(1024)
             fab_log(status, verbose_mode=3)
@@ -151,6 +151,8 @@ def handshake(secrets=None):
             clients.address[username] = address
             clients.secret[username] = client_secrets
             clients.is_encrypted[username] = is_encrypted
+            clients.color[username] = assign_color(username, clients.color.values(),
+                                                   limit=fc.MAX_CONN)
 
             # announce entry of user
             client.send(query_msg('Q:ACCEPT'))

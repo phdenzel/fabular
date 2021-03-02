@@ -26,6 +26,7 @@ class Clients(object):
         self.address = {}
         self.secret = {}
         self.is_encrypted = {}
+        self.color = {}
 
     def __getitem__(self, key):
         return self.socket[key]
@@ -44,6 +45,7 @@ class Clients(object):
         self.address.pop(key)
         self.secret.pop(key)
         self.is_encrypted.pop(key)
+        self.color.pop(key)
         return socket
 
 
@@ -69,16 +71,16 @@ def connect_server(host, port):
     return client
 
 
-def receive(secrets=None):
+def receive():
     """
     TODO
     """
-    global username, accepted, decode, stop_threads
+    global username, secrets, accepted, decode, stop_threads
     while True:
         if stop_threads:
             break
         try:
-            message = client.recv(fc.RSA_BITS)
+            message = client.recv(fc.BLOCK_SIZE)
             if message:
                 if is_query(message, 'Q:USERNAME'):
                     client.send(username.encode(fc.DEFAULT_ENC))
@@ -89,39 +91,48 @@ def receive(secrets=None):
                 elif is_query(message, 'Q:PUBKEY'):
                     client.send(secrets.pubkey)
                 elif is_query(message, 'Q:SESSION_KEY'):
-                    client.send(f'{username}: Setting up encryption...'.encode(fc.DEFAULT_ENC))
-                    fab_log('DCRY', verbose_mode=3)
-                    enc_msg = client.recv(2048)
-                    server_keys = secrets.hybrid_decrypt(enc_msg)
-                    server_secrets = Secrets.from_keys(server_keys)
-                    secrets.sesskey = server_secrets.sesskey
-                    if server_secrets is not None:
-                        decode = True
-                        client.send(b'1')
+                    if fc.ENCRYPTION:
+                        client.send(f'{username}: Setting up encryption...'.encode(fc.DEFAULT_ENC))
+                        fab_log('DCRY', verbose_mode=3)
+                        enc_msg = client.recv(2*fc.BLOCK_SIZE)
+                        server_keys = secrets.hybrid_decrypt(enc_msg)
+                        server_secrets = Secrets.from_keys(server_keys)
+                        if server_secrets is not None:
+                            secrets.sesskey = server_secrets.sesskey
+                            decode = True
+                            client.send(b'1')
+                        else:
+                            fab_log('FDCR', verbose_mode=3)
+                            client.send(b'0')
                     else:
-                        fab_log('FDCR', verbose_mode=3)
+                        client.send(f'{username}: Proceed without encryption'.encode(
+                            fc.DEFAULT_ENC))
+                        client.recv(2*fc.BLOCK_SIZE)
+                        server_secrets = Secrets()
                         client.send(b'0')
                 elif is_query(message, 'Q:ACCEPT'):
-                    accepted = True
                     client.send(f'{username}: Starting Thread(write)...'.encode(fc.DEFAULT_ENC))
+                    fab_log('WRYT', verbose_mode=3)
+                    fab_log('', verbose_mode=3)
+                    accepted = True
                 elif is_query(message, 'Q:KILL'):
                     pass
                 else:
                     if decode:
                         message = secrets.AES_decrypt(message)
-                    fab_log(message.decode(fc.DEFAULT_ENC))
+                    fab_log(message)
         except Exception as ex:
-            fab_log('client.receive() encountered an error!\n'+ex.message, verbose_mode=5)
+            fab_log('fabular.client.receive: {}'.format(ex), verbose_mode=5)
             stop_threads = True
             client.close()
             break
 
 
-def write(secrets=None):
+def write():
     """
     TODO
     """
-    global accepted, decode, stop_threads
+    global secrets, accepted, decode, stop_threads
 
     while True:
         if stop_threads:
@@ -156,8 +167,8 @@ if __name__ == "__main__":
     # login to server
     client = connect_server(HOST, PORT)
 
-    receive_thread = threading.Thread(target=receive, args=(secrets,))
+    receive_thread = threading.Thread(target=receive)
     receive_thread.start()
 
-    write_thread = threading.Thread(target=write, args=(secrets,))
+    write_thread = threading.Thread(target=write)
     write_thread.start()
