@@ -244,6 +244,13 @@ class Secrets(object):
         self.session_hash = session_hash
 
     @classmethod
+    def random(cls, **kwargs):
+        pub, priv = generate_RSAk(**kwargs)
+        hashpub = get_hash(pub)
+        key8, hash8 = session_keys()
+        return cls(priv, pub, hashpub, key8, hash8)
+        
+    @classmethod
     def from_keys(cls, keys):
         pub, hash_key, sess_key, sess_hash = keys.split(CCSEQ)
         if check_hash(pub, hash_key) and check_hash(sess_key, sess_hash):

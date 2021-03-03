@@ -19,6 +19,9 @@ from fabular.crypt import Secrets
 if HOST is None:
     HOST = fc.LOCALHOST
 
+
+__all__ = ['Clients', 'connect_server', 'receive', 'write', 'main']
+
 accepted = False
 decode = False
 stop_threads = False
@@ -175,9 +178,11 @@ def main():
     client = connect_server(HOST, PORT)
 
     receive_thread = threading.Thread(target=receive, args=(client,))
+    # receive_thread.daemon = True
     receive_thread.start()
 
     write_thread = threading.Thread(target=write, args=(client,))
+    # receive_thread.daemon = True
     write_thread.start()
 
 

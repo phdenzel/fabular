@@ -24,7 +24,7 @@ if HOST is None:
 
 __all__ = ['init_server', 'broadcast', 'handle', 'handshake', 'main']
 
-clients = {}
+clients = Clients()
 
 
 def init_server(host, port, max_conn=fc.MAX_CONN):
@@ -100,7 +100,7 @@ def handle(client_key):
         except Exception as ex:
             client = clients.pop(client_key)
             if client:
-                client.close()
+                # client.close()
                 exit_msg = fab_msg('EXIT', client_key)
                 broadcast(exit_msg)
             fab_log('fabular.server.handle: {}'.format(ex), verbose_mode=5)
@@ -120,6 +120,8 @@ def handshake(server, secrets=None):
     global clients
     v = dict(verbose_mode=fc.VERBOSE)
     while True:
+        if server is None:
+            break
         try:
             client, address = server.accept()
             fab_log('CONN', address, **v)
@@ -162,10 +164,13 @@ def handshake(server, secrets=None):
             fab_log(client.recv(256), verbose_mode=3)
             broadcast(fab_msg('ENTR', username))
             handle_thread = threading.Thread(target=handle, args=(username,))
+            handle_thread.daemon = True
             handle_thread.start()
 
         except KeyboardInterrupt:
+            server = None
             fab_log('ENDS', verbose_mode=3)
+            # raise
             return
 
 
@@ -187,6 +192,7 @@ def main():
 
     # start accept thread
     accept_thread = threading.Thread(target=handshake, args=(server, server_secrets,))
+    accept_thread.daemon = True
     accept_thread.start()
     accept_thread.join()
     server.close()
