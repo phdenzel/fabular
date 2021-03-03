@@ -3,10 +3,6 @@
 fabular - server
 
 @author: phdenzel
-
-TODO:
-    - fix for clean exit
-    - investigate CPU spike after client exit
 """
 import sys
 import threading
@@ -82,6 +78,7 @@ def handle(client_key):
     Kwargs/Return:
         None
     """
+    global clients
     while True:
         try:
             data = clients[client_key].recv(1024)
@@ -105,7 +102,7 @@ def handle(client_key):
             break
 
 
-def handshake(secrets=None):
+def handshake(server, secrets=None):
     """
     Server main loop: Accept and set up new incoming connections
 
@@ -115,6 +112,7 @@ def handshake(secrets=None):
     Kwargs/Return:
         None
     """
+    global clients
     v = dict(verbose_mode=fc.VERBOSE)
     while True:
         try:
@@ -166,7 +164,8 @@ def handshake(secrets=None):
             return
 
 
-if __name__ == "__main__":
+def main():
+    global clients
 
     # RSA keys
     pub, priv = generate_RSAk(export_id='server')
@@ -182,7 +181,12 @@ if __name__ == "__main__":
     fab_log('INIS', verbose_mode=3)
 
     # start accept thread
-    accept_thread = threading.Thread(target=handshake, args=(secrets,))
+    accept_thread = threading.Thread(target=handshake, args=(server, secrets,))
     accept_thread.start()
     accept_thread.join()
     server.close()
+
+
+if __name__ == "__main__":
+
+    main()

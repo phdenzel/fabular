@@ -19,6 +19,12 @@ from fabular.crypt import Secrets
 if HOST is None:
     HOST = fc.LOCALHOST
 
+accepted = False
+decode = False
+stop_threads = False
+username = ""
+secrets = None
+
 
 class Clients(object):
     def __init__(self, *args):
@@ -71,7 +77,7 @@ def connect_server(host, port):
     return client
 
 
-def receive():
+def receive(client):
     """
     TODO
     """
@@ -128,11 +134,11 @@ def receive():
             break
 
 
-def write():
+def write(client):
     """
     TODO
     """
-    global secrets, accepted, decode, stop_threads
+    global stop_threads
 
     while True:
         if stop_threads:
@@ -150,11 +156,12 @@ def write():
             client.send(message)
 
 
-if __name__ == "__main__":
+def main():
+    global username, secrets, accepted, decode, stop_threads
 
-    stop_threads = False
     accepted = False
     decode = False
+    stop_threads = False
     username = input('Enter your username: ')
 
     # RSA keys
@@ -167,8 +174,13 @@ if __name__ == "__main__":
     # login to server
     client = connect_server(HOST, PORT)
 
-    receive_thread = threading.Thread(target=receive)
+    receive_thread = threading.Thread(target=receive, args=(client,))
     receive_thread.start()
 
-    write_thread = threading.Thread(target=write)
+    write_thread = threading.Thread(target=write, args=(client,))
     write_thread.start()
+
+
+if __name__ == "__main__":
+
+    main()

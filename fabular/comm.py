@@ -19,7 +19,7 @@ fab_msgs = {
     'FDCR': '{prefix}Encryption setup failed, proceeding without{suffix}',
     'WRYT': ('{prefix}Ready to chat.\n'
              'Should you wish to leave, '
-             'type one of [\q | \quit | \exit | \leave]{suffix}'),
+             r'type one of [\q | \quit | \exit | \leave]{suffix}'),
     'CHAT': '{prefix}{{}}{suffix}',
     'ENTR': '{prefix}{{}} entered the session{suffix}',
     'EXIT': '{prefix}{{}} has left fabular{suffix}',
@@ -28,7 +28,7 @@ fab_msgs = {
 }
 
 cmd_signals = {
-    'Q': ['\q', '\quit', '\exit', '\leave'],
+    'Q': [r'\{}'.format(q) for q in ['q', 'quit', 'exit', 'leave']],
 }
 
 

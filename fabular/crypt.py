@@ -7,6 +7,7 @@ fabular - crypt
 import os
 import hashlib
 from Crypto import Random
+from Crypto import Random
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
 from Crypto.PublicKey import RSA
@@ -77,7 +78,7 @@ def session_keys(block_size=8):
 
 def get_hash(key, encoding=fc.DEFAULT_ENC):
     """
-    Calculate MD5 hash of a given key
+    Calculate SHA256 hash of a given key
 
     Args:
         key <bytes> - a (public) key
@@ -90,7 +91,7 @@ def get_hash(key, encoding=fc.DEFAULT_ENC):
     """
     if isinstance(key, str):
         key = key.encode(encoding)
-    hash_key = hashlib.md5(key).hexdigest().encode(encoding)
+    hash_key = hashlib.sha256(key).hexdigest().encode(encoding)
     return hash_key
 
 
@@ -108,7 +109,7 @@ def check_hash(key, hash_key, encoding=fc.DEFAULT_ENC):
     Return:
         check <bool> - True if both hashes agree
     """
-    hash_pub = hashlib.md5(key).hexdigest().encode(encoding)
+    hash_pub = hashlib.sha256(key).hexdigest().encode(encoding)
     return hash_pub == hash_key
 
 
