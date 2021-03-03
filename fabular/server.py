@@ -22,6 +22,11 @@ if HOST is None:
     HOST = fc.LOCALHOST
 
 
+__all__ = ['init_server', 'broadcast', 'handle', 'handshake', 'main']
+
+clients = {}
+
+
 def init_server(host, port, max_conn=fc.MAX_CONN):
     """
     Initialize server and bind to given address
@@ -155,7 +160,7 @@ def handshake(server, secrets=None):
             # announce entry of user
             client.send(query_msg('Q:ACCEPT'))
             fab_log(client.recv(256), verbose_mode=3)
-            broadcast(fab_msg('ENTR', username))  # TODO: first failure of encryption
+            broadcast(fab_msg('ENTR', username))
             handle_thread = threading.Thread(target=handle, args=(username,))
             handle_thread.start()
 
@@ -171,8 +176,8 @@ def main():
     pub, priv = generate_RSAk(export_id='server')
     hashpub = get_hash(pub)
     key8, hash8 = session_keys()
-    secrets = Secrets(priv, pub, hashpub, key8, hash8)
-    if not secrets.check_hash():
+    server_secrets = Secrets(priv, pub, hashpub, key8, hash8)
+    if not server_secrets.check_hash():
         sys.exit()
 
     # Set up server socket
@@ -181,7 +186,7 @@ def main():
     fab_log('INIS', verbose_mode=3)
 
     # start accept thread
-    accept_thread = threading.Thread(target=handshake, args=(server, secrets,))
+    accept_thread = threading.Thread(target=handshake, args=(server, server_secrets,))
     accept_thread.start()
     accept_thread.join()
     server.close()
