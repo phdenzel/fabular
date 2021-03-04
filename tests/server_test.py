@@ -3,15 +3,15 @@ fabular - tests.server_test
 
 @author: phdenzel
 """
-import os
-import signal
+import time
 import socket
 import threading
-from tests.prototype import UnitTestPrototype, SequentialTestLoader
-from fabular import config as fc
+import fabular.config as fc
 import fabular.server as fsrvr
 from fabular.client import Clients
 from fabular.crypt import Secrets
+from tests.prototype import UnitTestPrototype
+from tests.prototype import SequentialTestLoader
 
 
 class ServerModuleTest(UnitTestPrototype):
@@ -19,14 +19,13 @@ class ServerModuleTest(UnitTestPrototype):
     def setUp(self):
         # arguments and keywords
         self.addr = ('127.0.0.1', 65333)
-        self.msg = ("I done wrestled with an alligator, "
-                    "I done tussled with a whale, "
+        self.msg = ("I've wrestled with an alligator, "
+                    "I done tussle with a whale, "
                     "I done handcuffed lightnin'"
                     "and thrown thunder in jail."
                     "Only last week I murdered a rock, "
                     "injured a stone, hospitalized a brick. "
                     "I'm so mean, I make medicine sick.")
-        # self.v = {'verbose': 3}
         self.server = fsrvr.init_server(*self.addr)
         print("")
         print(self.separator)
@@ -37,6 +36,8 @@ class ServerModuleTest(UnitTestPrototype):
             self.server.close()
         except AttributeError:
             pass
+        self.server = None
+        time.sleep(0.01)
         print("")
 
     def mock_clients(self, username='mock_client'):
@@ -48,7 +49,7 @@ class ServerModuleTest(UnitTestPrototype):
         clients.color[username] = 'blue'
         return username, clients
 
-    def test_server_init_server(self):
+    def test_init_server(self):
         """ # fabular.server.init_server """
         args = '127.0.0.1', 65444
         self.printf(args)
@@ -56,35 +57,40 @@ class ServerModuleTest(UnitTestPrototype):
         self.assertIsInstance(server, socket.socket)
         self.assertEqual(server.getsockname()[0], args[0])
         self.assertEqual(server.getsockname()[1], int(args[1]))
-        self.assertNotEqual(server.connect_ex((args[0], int(args[1]))), 0)  # !=0: not connected
+        # !=0: not connected
+        self.assertNotEqual(server.connect_ex((args[0], int(args[1]))), 0)
         self.printout(server)
         server.close()
 
-    def test_server_broadcast(self):
+    def test_broadcast(self):
         """ # fabular.server.broadcast """
         self.printf(self.msg)
         username, clients = self.mock_clients()
         clients[username].connect(self.addr)
         fsrvr.broadcast(self.msg)
 
-    def test_server_handle(self):
+    def test_handle(self):
         """ # fabular.server.handle """
-        self.printf(self.msg)
         username, clients = self.mock_clients()
+        self.printf(username)
+        # client_secrets = clients.secret[username]
         clients[username].connect(self.addr)
-        thread = threading.Thread(target=fsrvr.handle, args=(username,))
+        fsrvr.clients = clients
+        thread = threading.Thread(target=fsrvr.handle,
+                                  args=(self.server, username,))
         thread.daemon = True
         thread.start()
-        clients[username].send(self.msg)
-        
+        clients[username].send(self.msg.encode('utf-8'))
+        print("\nNo errors occurred...\n")
 
-    def test_server_handshake(self, delay=False):
+    def test_handshake(self, delay=False):
         """ # fabular.server.handshake """
         print("Handshake thread with mock client started...")
         username, clients = self.mock_clients()
         client_secrets = clients.secret[username]
         clients[username].connect(self.addr)
-        thread = threading.Thread(target=fsrvr.handshake, args=(self.server, client_secrets))
+        thread = threading.Thread(target=fsrvr.handshake,
+                                  args=(self.server, client_secrets))
         thread.daemon = True
         thread.start()
         clients[username].recv(2048)  # Q:USERNAME
@@ -98,19 +104,13 @@ class ServerModuleTest(UnitTestPrototype):
         clients[username].recv(2048)  # Q:ACCEPT
         clients[username].send(b'Starting chat thread...')
         clients[username].recv(2048)
-        clients[username].close()
-        self.server = None
-
-    def test_server_handle(self):
-        """ # fabular.server.handle """
-        pass
+        clients[username].send(b'\\leave')
+        clients[username].recv(2048)
+        print("\nNo errors occurred...\n")
 
 
 if __name__ == "__main__":
+
     loader = SequentialTestLoader()
     loader.proto_load(ServerModuleTest)
     loader.run_suites()
-    
-    # os.kill(os.getpid(), signal.SIGKILL)
-    
-    

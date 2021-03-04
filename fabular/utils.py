@@ -57,7 +57,7 @@ def assign_color(id_str, color_list, limit=16):
     """
     add = ''
     while id_color(id_str+add) in color_list:
-        add += 'a'
+        add += 'b'
         if len(add) > 16:
             break
     return id_color(id_str+add)

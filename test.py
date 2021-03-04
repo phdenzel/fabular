@@ -6,11 +6,21 @@ fabular - test
 """
 from tests.prototype import SequentialTestLoader
 from tests.server_test import ServerModuleTest
+from tests.client_test import ClientModuleTest
+from tests.comm_test import CommModuleTest
+from tests.crypt_test import CryptModuleTest
+# from tests.utils_test import UtilsModuleTest
 
 
 def main():
+
     loader = SequentialTestLoader()
+
     loader.proto_load(ServerModuleTest)
+    loader.proto_load(ClientModuleTest)
+    loader.proto_load(CommModuleTest)
+    loader.proto_load(CryptModuleTest)
+    # loader.proto_load(UtilsModuleTest)
 
     loader.run_suites(verbosity=1)
 

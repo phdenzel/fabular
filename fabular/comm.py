@@ -28,7 +28,7 @@ fab_msgs = {
 }
 
 cmd_signals = {
-    'Q': [r'\{}'.format(q) for q in ['q', 'quit', 'exit', 'leave']],
+    'X': [r'\{}'.format(q) for q in ['q', 'quit', 'exit', 'leave']],
 }
 
 
@@ -63,7 +63,7 @@ def query_msg(query, encoding=fc.DEFAULT_ENC):
 
 def is_query(msg, query):
     """
-    Check if message is a query
+    Check if message is a particular query
 
     Args:
         msg <bytes>
@@ -75,7 +75,10 @@ def is_query(msg, query):
     Return:
         check <bool> - True if message is an encoded query
     """
-    return msg == query_msg(query)
+    q = query_msg(query)
+    if q:
+        return msg == q
+    return False
 
 
 def verbose_level(verbose_mode=3):

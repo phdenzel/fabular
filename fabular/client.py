@@ -30,7 +30,7 @@ client_secrets = None
 
 
 class Clients(object):
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.socket = {}
         self.address = {}
         self.secret = {}
@@ -50,11 +50,17 @@ class Clients(object):
         return self.socket.__contains__(key)
 
     def pop(self, key):
-        socket = self.socket.pop(key)
-        self.address.pop(key)
-        self.secret.pop(key)
-        self.is_encrypted.pop(key)
-        self.color.pop(key)
+        socket = None
+        if key in self.socket:
+            socket = self.socket.pop(key)
+        if key in self.address:
+            self.address.pop(key)
+        if key in self.secret:
+            self.secret.pop(key)
+        if key in self.is_encrypted:
+            self.is_encrypted.pop(key)
+        if key in self.color:
+            self.color.pop(key)
         return socket
 
 
@@ -150,7 +156,7 @@ def write(client):
             continue
         message = input("\033[1A")
         if message:
-            if any([s in message.lower() for s in cmd_signals['Q']]):
+            if any([s in message.lower() for s in cmd_signals['X']]):
                 stop_threads = True
             if decode:
                 message = client_secrets.AES_encrypt(message.encode(fc.DEFAULT_ENC))
