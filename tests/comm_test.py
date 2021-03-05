@@ -81,7 +81,7 @@ class CommModuleTest(UnitTestPrototype):
             self.printf(sys_key)
             sys_msg = fcomm.fab_msg(sys_key)
             self.assertIsInstance(sys_msg, str)
-            self.assertEquals(sys_msg, fcomm.fab_msgs[sys_key].format(
+            self.assertEqual(sys_msg, fcomm.fab_msgs[sys_key].format(
                 prefix=fc.MSG_PREFIX, suffix=fc.MSG_SUFFIX).format(''))
             self.printout(sys_msg)
 

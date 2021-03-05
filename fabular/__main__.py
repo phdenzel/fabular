@@ -61,8 +61,8 @@ def config_override(args, cfgs):
 if __name__ == "__main__":
 
     parser, args = arg_parse()
-    cfg = parse_cfg(['server.cfg', 'client.cfg'])
 
+    # cfg = parse_cfg(['server.cfg', 'client.cfg'])
     # for key in cfg['server']:
     #     print(key, "=", cfg['server'].get(key))
     # for key in cfg['client']:
@@ -73,10 +73,10 @@ if __name__ == "__main__":
         from test import main
         main()
     elif args.as_client:  # run client instance
-        config_override(args, cfg['client'])
+        config_override(args, {})
         from fabular.client import main
         main()
     else:  # run server instance
-        config_override(args, cfg['server'])
+        config_override(args, {})
         from fabular.server import main
         main()

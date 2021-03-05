@@ -138,13 +138,19 @@ class CryptModuleTest(UnitTestPrototype):
 
     def test_AES_from_key(self):
         """ # fabular.crypt.AES_from_key """
-        k = b'1234567890'
+        k = b'1234567890'*2
         self.printf(k)
         cipher = fcrypt.AES_from_key(k)
         self.assertIsNone(cipher)
         self.printout(cipher)
 
-        k = b'12345678'
+        k = b'12345678'*2
+        self.printf(k)
+        cipher = fcrypt.AES_from_key(k)
+        self.assertIsNotNone(cipher)
+        self.printout(cipher)
+
+        k = '12345678'*2
         self.printf(k)
         cipher = fcrypt.AES_from_key(k)
         self.assertIsNotNone(cipher)
@@ -164,6 +170,18 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertEqual(msg_enc, result)
         self.printout(msg_enc)
 
+        self.printf((test_msg, {'key': None}))
+        msg = fcrypt.encrypt_msg(test_msg, key=None)
+        self.assertIsNone(msg)
+        self.printout(msg)
+
+        self.printf(('', {'key': k}))
+        msg = fcrypt.encrypt_msg('', key=k)
+        self.assertFalse(msg)
+        self.assertIsInstance(msg, type(''))
+        self.assertEqual(msg, '')
+        self.printout(msg)
+
     def test_decrypt_msg(self):
         """ # fabular.crypt.decrypt_msg """
         msg_enc = (
@@ -177,6 +195,18 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertIsInstance(msg_dec, str)
         self.assertEqual(msg_dec, test_msg)
         self.printout(msg_dec)
+
+        self.printf((msg_enc, {'key': None}))
+        msg = fcrypt.decrypt_msg(msg_enc, key=None)
+        self.assertIsNone(msg)
+        self.printout(msg)
+
+        self.printf(('', {'key': k}))
+        msg = fcrypt.decrypt_msg('', key=k)
+        self.assertFalse(msg)
+        self.assertIsInstance(msg, type(''))
+        self.assertEqual(msg, '')
+        self.printout(msg)
 
     def test_Secrets(self):
         """ # fabular.crypt.Secrets """

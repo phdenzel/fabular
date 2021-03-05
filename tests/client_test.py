@@ -48,6 +48,14 @@ class ClientModuleTest(UnitTestPrototype):
         cclient.close()
         self.printout(cclient)
 
+        addr = self.addr[0], str(self.addr[1])
+        self.printf(addr)
+        cclient = fclt.connect_server(*addr)
+        self.assertNotEqual(cclient.connect_ex(self.addr), 0)
+        self.assertEqual(cclient.getpeername(), self.addr)
+        cclient.close()
+        self.printout(cclient)
+
     def test_Clients(self, username='mock_client', verbose=True):
         """ # fabular.client.Clients """
         csocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

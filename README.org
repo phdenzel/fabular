@@ -1,0 +1,24 @@
+* fabular
+
+A command-line chat app for secure communication between you and your friends!
+
+Key features:
+- uses hybrid encryption scheme to establish a connection
+- uses session-randomized AES (Rijndael) encryption in EAX mode for messages
+- username-specific colors
+
+** Requirements
+
+- ~python3~
+- ~Pycryptodome~
+- a server with an open port
+- at least two command-line machines
+
+** Install
+
+Simply type ~pip install fabular~
+
+** TODO
+
+- automate testing: ~pipenv run pytest -v --cov=fabular --cov-report=html~
+- integrate bandit: ~pipenv run bandit fabular -r~

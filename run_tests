@@ -1,0 +1,3 @@
+#!/bin/bash
+
+pipenv run pytest -v --cov=fabular --cov-report=html

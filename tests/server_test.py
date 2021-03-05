@@ -16,9 +16,11 @@ from tests.prototype import SequentialTestLoader
 
 class ServerModuleTest(UnitTestPrototype):
 
+    port = 65333
+
     def setUp(self):
         # arguments and keywords
-        self.addr = ('127.0.0.1', 65333)
+        self.port += 1
         self.msg = ("I've wrestled with an alligator, "
                     "I done tussle with a whale, "
                     "I done handcuffed lightnin'"
@@ -26,7 +28,10 @@ class ServerModuleTest(UnitTestPrototype):
                     "Only last week I murdered a rock, "
                     "injured a stone, hospitalized a brick. "
                     "I'm so mean, I make medicine sick.")
-        self.server = fsrvr.init_server(*self.addr)
+        try:
+            self.server = fsrvr.init_server(*self.addr)
+        except OSError:
+            pass
         print("")
         print(self.separator)
         print(self.shortDescription())
@@ -39,6 +44,10 @@ class ServerModuleTest(UnitTestPrototype):
         self.server = None
         time.sleep(0.01)
         print("")
+
+    @property
+    def addr(self):
+        return ('127.0.0.1', self.port)
 
     def mock_clients(self, username='mock_client'):
         clients = Clients()
