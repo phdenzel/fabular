@@ -11,6 +11,9 @@ install:
   - pip install pipenv
   - pipenv install --dev
 
+before_script:
+  - export PYTHONPATH=$PYTHONPATH:$(pwd)
+
 script:
   - pipenv run pytest -v --cov=fabular --cov-report=xml
 #  - pipenv run bandit fabular -r
