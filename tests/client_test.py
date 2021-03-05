@@ -57,7 +57,7 @@ class ClientModuleTest(UnitTestPrototype):
         clients = fclt.Clients(**args)
         clients[username] = csocket
         clients.address[username] = self.addr
-        clients.secret[username] = Secrets.random(export_id='server')
+        clients.secret[username] = Secrets.random(file_id='server')
         clients.is_encrypted[username] = False
         clients.color[username] = 'blue'
         self.assertIsInstance(clients, fclt.Clients)

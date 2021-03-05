@@ -83,3 +83,12 @@ def mkdir_p(pathname):
             pass
         else:
             raise
+
+
+if __name__ == "__main__":
+
+    from tests.prototype import SequentialTestLoader
+    from tests.utils_test import UtilsModuleTest
+    loader = SequentialTestLoader()
+    loader.proto_load(UtilsModuleTest)
+    loader.run_suites()

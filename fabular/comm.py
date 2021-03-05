@@ -165,8 +165,9 @@ if fc.LOG_FILE:
 
 
 if __name__ == "__main__":
-    msg = fab_msg('CONN', 'fabular messenger', suffix='!')
-    msg = fab_msg('EXIT', 'Q:USERNAME')
-    msg = fab_msg('CHAT', "something, something", prefix='', suffix='')
-    fab_log(msg, verbose_mode=3)
-    fab_log('EXIT', 'Someone')
+
+    from tests.prototype import SequentialTestLoader
+    from tests.comm_test import CommModuleTest
+    loader = SequentialTestLoader()
+    loader.proto_load(CommModuleTest)
+    loader.run_suites()

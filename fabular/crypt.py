@@ -7,7 +7,6 @@ fabular - crypt
 import os
 import hashlib
 from Crypto import Random
-from Crypto import Random
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
 from Crypto.PublicKey import RSA
@@ -20,8 +19,8 @@ CCSEQ = b':::'  # concat sequence
 
 
 def generate_RSAk(size=fc.BLOCK_SIZE,
-                  export_id='id',
-                  export_dir='.fabular/rsa'):
+                  file_id='id',
+                  file_dir='.fabular/rsa'):
     """
     Generate a RSA key for server-client handshake,
     from file if it exists or from a random number
@@ -31,13 +30,18 @@ def generate_RSAk(size=fc.BLOCK_SIZE,
 
     Kwargs:
         size <int> - byte size of the key
+        file_id <str> -
+        file_dir <str> -
 
     Return:
         public, private <bytes> - public/private RSA key
     """
-    pubfile = os.path.join(export_dir, export_id+'_rsa.pub')
-    privfile = os.path.join(export_dir, export_id+'_rsa')
-    mkdir_p(export_dir)
+    pubfile = ""
+    privfile = ""
+    if file_id is not None and file_dir is not None:
+        pubfile = os.path.join(file_dir, file_id+'_rsa.pub')
+        privfile = os.path.join(file_dir, file_id+'_rsa')
+        mkdir_p(file_dir)
     if os.path.exists(pubfile) and os.path.exists(privfile):
         with open(pubfile, 'rb') as f:
             public = RSA.importKey(f.read()).exportKey(format='PEM')
@@ -48,10 +52,12 @@ def generate_RSAk(size=fc.BLOCK_SIZE,
         RSAkey = RSA.generate(size, random)
         public = RSAkey.publickey().exportKey(format='PEM')
         private = RSAkey.exportKey(format='PEM')
-        with open(pubfile, 'wb') as f:
-            f.write(public)
-        with open(privfile, 'wb') as f:
-            f.write(private)
+        if pubfile:
+            with open(pubfile, 'wb') as f:
+                f.write(public)
+        if privfile:
+            with open(privfile, 'wb') as f:
+                f.write(private)
     return public, private
 
 
@@ -249,7 +255,11 @@ class Secrets(object):
         hashpub = get_hash(pub)
         key8, hash8 = session_keys()
         return cls(priv, pub, hashpub, key8, hash8)
-        
+
+    @classmethod
+    def from_rsa_file(cls, **kwargs):
+        NotImplemented
+
     @classmethod
     def from_keys(cls, keys):
         pub, hash_key, sess_key, sess_hash = keys.split(CCSEQ)
@@ -271,7 +281,7 @@ class Secrets(object):
     def from_sesskey(cls, session):
         sess_key, sess_hash = session.split(CCSEQ)
         if check_hash(sess_key, sess_hash):
-            return cls(session)
+            return cls(session=sess_key, session_hash=sess_hash)
         else:
             return None
 
@@ -322,7 +332,10 @@ class Secrets(object):
         elif self.session and len(self.session) == 16:
             return self.session
         else:
-            return Random.get_random_bytes(16)
+            rand16 = Random.get_random_bytes(16)
+            self.session = rand16
+            self.session_hash = get_hash(rand16)
+            return rand16
 
     @property
     def RSA(self):
@@ -419,25 +432,9 @@ class Secrets(object):
 
 
 if __name__ == "__main__":
-    pub, priv = generate_RSAk(export_id='server')
-    print(pub)
-    print(priv)
-    # hashpub = get_hash(pub)
-    # print(hashpub)
-    # print(check_hash(pub, hashpub))
 
-    rand8, hash8 = session_keys()
-    print(rand8)
-    print(hash8)
-    print(check_hash(rand8, hash8))
-
-    cipher = AES_from_key(rand8)
-    print(len(rand8), len(rand8 + rand8[::-1]))
-    print(cipher)
-    print(cipher.block_size, AES.block_size)
-
-    test_msg = "Eureka! Encrypt+Decrypt success!"
-    msg_enc = encrypt_msg(test_msg, key=rand8)
-    msg_dec = decrypt_msg(msg_enc, rand8)
-    print(msg_enc)
-    print(msg_dec)
+    from tests.prototype import SequentialTestLoader
+    from tests.crypt_test import CryptModuleTest
+    loader = SequentialTestLoader()
+    loader.proto_load(CryptModuleTest)
+    loader.run_suites()

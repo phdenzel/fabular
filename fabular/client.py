@@ -174,7 +174,7 @@ def main():
     username = input('Enter your username: ')
 
     # RSA keys
-    pub, priv = generate_RSAk(export_id=f'{username}')
+    pub, priv = generate_RSAk(file_id=f'{username}')
     hash_pub = get_hash(pub)
     client_secrets = Secrets(private=priv, public=pub, public_hash=hash_pub)
     if not client_secrets.check_hash():
@@ -194,4 +194,10 @@ def main():
 
 if __name__ == "__main__":
 
-    main()
+    # main()
+
+    from tests.prototype import SequentialTestLoader
+    from tests.client_test import ClientModuleTest
+    loader = SequentialTestLoader()
+    loader.proto_load(ClientModuleTest)
+    loader.run_suites()

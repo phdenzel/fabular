@@ -44,7 +44,7 @@ class ServerModuleTest(UnitTestPrototype):
         clients = Clients()
         clients[username] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         clients.address[username] = self.addr
-        clients.secret[username] = Secrets.random(export_id='server')
+        clients.secret[username] = Secrets.random(file_id='server')
         clients.is_encrypted[username] = False
         clients.color[username] = 'blue'
         return username, clients

@@ -182,7 +182,7 @@ def main(host=HOST, port=PORT):
 
     try:
         # RSA keys
-        pub, priv = generate_RSAk(export_id='server')
+        pub, priv = generate_RSAk(file_id='server')
         hashpub = get_hash(pub)
         key8, hash8 = session_keys()
         server_secrets = Secrets(priv, pub, hashpub, key8, hash8)
@@ -207,4 +207,10 @@ def main(host=HOST, port=PORT):
 
 if __name__ == "__main__":
 
-    main()
+    # main()
+
+    from tests.prototype import SequentialTestLoader
+    from tests.server_test import ServerModuleTest
+    loader = SequentialTestLoader()
+    loader.proto_load(ServerModuleTest)
+    loader.run_suites()
