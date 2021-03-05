@@ -13,4 +13,4 @@ install:
 
 script:
   - pipenv run pytest -v --cov=fabular --cov-report=xml
-  - pipenv run bandit fabular -r
+#  - pipenv run bandit fabular -r
