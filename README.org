@@ -1,5 +1,7 @@
 * fabular
 
+[[https://travis-ci.com/phdenzel/fabular][https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master]]
+
 A command-line chat app for secure communication between you and your friends!
 
 Key features:
