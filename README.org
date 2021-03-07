@@ -33,15 +33,21 @@ pipenv install -e .
 
 Run fabular in server-mode (set up a fabular server for clients to connect to):
 #+BEGIN_SRC bash
-pipenv run python -m fabular -s $*
+pipenv run fabular -s $*
 #+END_SRC
 
 Run fabular in client-mode (connecting to a chat server):
 #+BEGIN_SRC bash
-pipenv run python -m fabular -c $*
+pipenv run fabular -c $*
 #+END_SRC
 
 Run fabular in test-mode:
+#+BEGIN_SRC bash
+pipenv run fabular -t
+#+END_SRC
+
+or with ~pytest~:
+
 #+BEGIN_SRC bash
 pipenv run pytest -v --cov=src --cov-report=html
 #+END_SRC
