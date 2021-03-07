@@ -20,7 +20,7 @@ setup(
     keywords="command line, chat, secure, encryption, server, client",
     classifiers=[
         'Development Status :: 1 - Alpha',
-        'License :: GNU General Public License v3.0',
+        'License :: GPLv3',
         'Operating System :: Linux',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
