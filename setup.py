@@ -46,7 +46,7 @@ setup(
     install_requires=[],
     packages=find_packages(
         where='src',
-        exclude=['tests*'],
+        #exclude=['tests*'],
     ),
     package_dir={"": "src"},
     py_modules=['fabular'],
