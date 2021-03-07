@@ -1,8 +1,17 @@
+import os
 from setuptools import setup
 from setuptools import find_packages
 
-with open(file="README.md", mode="r") as readme_f:
-    long_description = readme_f.read()
+ld = {}
+if os.path.exists("README.md"):
+    ld['filename'] = "README.md"
+    ld['content_type'] = "text/markdown"
+elif os.path.exists("README.org"):
+    ld['filename'] = "README.org"
+    ld['content_type'] = "text/plain"
+
+with open(file=ld['filename'], mode="r") as readme_f:
+    ld['data'] = readme_f.read()
 
 setup(
 
@@ -13,8 +22,8 @@ setup(
     version="0.0.dev1",
     description=("A command-line chat app for secure communication "
                  "between you and your friends!"),
-    long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description=ld['data'],
+    long_description_content_type=ld['content_type'],
     license='GNU General Public License v3.0',
     url="https://github.com/phdenzel/fabular",
     keywords="command line, chat, secure, encryption, server, client",
