@@ -10,8 +10,8 @@ install:
   - pip install pipenv
   - pipenv install --dev
 
-before_script:
-  - pipenv install -e .
+# before_script:
+#   - pipenv install -e .
 
 script:
   - pipenv run pytest -v --cov=fabular
