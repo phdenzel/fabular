@@ -1,1 +1,12 @@
-.fabular/rsa
+.fabular/
+.gitignore
+
+src/*.egg-info/
+dist/
+build/
+
+htmlcov
+.coverage
+coverage.xml
+.cache
+.pytest_cache/

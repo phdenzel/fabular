@@ -7,6 +7,8 @@ Launch a fabular instance which runs a server or connects to an address
 """
 import fabular.config as fc
 
+__all__ = ['main']
+
 
 def parse_cfg(filename):
     from configparser import ConfigParser
@@ -48,35 +50,26 @@ def arg_parse():
     return p, args
 
 
-def config_override(args, cfgs):
+def config_override(args, configs={}):
     # TODO: use cfgs to override args
     for key in fc.__dict__:
         if key.startswith('__'):
             continue
         if key.lower() in args and args.__getattribute__(key.lower()) is not None:
             fc.__dict__[key] = args.__getattribute__(key.lower())
-            # print("Override ", key, args.__getattribute__(key.lower()))
+    return args
 
 
-if __name__ == "__main__":
-
+def main():
     parser, args = arg_parse()
 
-    # cfg = parse_cfg(['server.cfg', 'client.cfg'])
-    # for key in cfg['server']:
-    #     print(key, "=", cfg['server'].get(key))
-    # for key in cfg['client']:
-    #     print(key, "=", cfg['client'].get(key))
-
     if args.test_mode:  # run test suite
-        config_override(args, {})
+        args = config_override(args)
         from test import main
-        main()
     elif args.as_client:  # run client instance
-        config_override(args, {})
+        args = config_override(args)
         from fabular.client import main
-        main()
     else:  # run server instance
-        config_override(args, {})
+        args = config_override(args)
         from fabular.server import main
-        main()
+    main()
