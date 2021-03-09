@@ -11,7 +11,8 @@
 
 # fabular
 
-[https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master](https://travis-ci.com/phdenzel/fabular)
+ <!-- [https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master](https://travis-ci.com/phdenzel/fabular) -->
+[![Build Status](https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master)](https://travis-ci.com/phdenzel/fabular)
 
 A command-line chat app for secure communication between you and your friends!
 
