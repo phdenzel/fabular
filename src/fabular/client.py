@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-fabular - client
-
 @author: phdenzel
+
+fabular - client
 """
 import sys
 import socket
@@ -30,7 +30,17 @@ client_secrets = None
 
 
 class Clients(object):
+    """
+    Data structure for holding client information
+    """
     def __init__(self, **kwargs):
+        """
+        Initializes empty tables for sockets, addresses, secrets,
+        encyption flags, and username color
+
+        Args/Kwargs:
+            None
+        """
         self.socket = {}
         self.address = {}
         self.secret = {}
@@ -38,18 +48,73 @@ class Clients(object):
         self.color = {}
 
     def __getitem__(self, key):
+        """
+        Get value of socket table from key
+
+        Args:
+            key <str> - username of the client
+
+        Kwargs:
+            None
+
+        Return:
+            socket <socket.Socket object> - username's client socket
+        """
         return self.socket[key]
 
     def __setitem__(self, key, val):
+        """
+        Set value of socket table at key
+
+        Args:
+            key <str> - username of the client
+            val <socket.Socket object> - username's client socket
+
+        Kwargs/Return:
+            None
+        """
         self.socket[key] = val
 
     def __iter__(self):
+        """
+        Iterator for client-socket table
+
+        Args/Kwargs:
+            None
+
+        Return:
+            iterator <dict.__iter__> - socket iterator
+        """
         return self.socket.__iter__()
 
     def __contains__(self, key):
+        """
+        Check if username is in the table
+
+        Args:
+            key <str> - username of the client
+
+        Kwargs:
+            None
+
+        Return:
+            contains <bool> - True if username in table
+        """
         return self.socket.__contains__(key)
 
     def pop(self, key):
+        """
+        Pop username from all tables and return the removed socket
+
+        Args:
+            key <str> - username of the client
+
+        Kwargs:
+            None
+
+        Return:
+            socket <socket.Socket object> - username's client socket
+        """
         socket = None
         if key in self.socket:
             socket = self.socket.pop(key)
@@ -70,7 +135,7 @@ def connect_server(host, port):
 
     Args:
         host <str> - host IP address
-        port <int> - IP port
+        port <int/str> - IP port
 
     Kwargs:
         None
@@ -88,7 +153,13 @@ def connect_server(host, port):
 
 def receive(client):
     """
-    TODO
+    Message recipience loop; handles special keys and reacts accordingly
+
+    Args:
+        client <socket.Socket object> - client socket
+
+    Kwargs/Return:
+        None
     """
     global username, client_secrets, accepted, decode, stop_threads
     while True:
@@ -145,7 +216,14 @@ def receive(client):
 
 def write(client):
     """
-    TODO
+    Message transmission loop which handles transmissions and logoff keys.
+    Triggers when <stop_threads> is False and <accepted> is True
+
+    Args:
+        client <socket.Socket object> - client socket
+
+    Kwargs/Return:
+        None
     """
     global stop_threads
 
@@ -166,6 +244,12 @@ def write(client):
 
 
 def main():
+    """
+    Connect to server socket and start receive/write thread
+
+    Args/Kwargs/Return:
+        None
+    """
     global username, client_secrets, accepted, decode, stop_threads
 
     accepted = False
@@ -174,9 +258,7 @@ def main():
     username = input('Enter your username: ')
 
     # RSA keys
-    pub, priv = generate_RSAk(file_id=f'{username}')
-    hash_pub = get_hash(pub)
-    client_secrets = Secrets(private=priv, public=pub, public_hash=hash_pub)
+    client_secrets = Secrets.from_rsa_fileID(f'{username}')
     if not client_secrets.check_hash():
         sys.exit()
 

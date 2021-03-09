@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """
+@author: phdenzel
+
 fabular - comm
 
 Message handler, log system, etc.
-
-@author: phdenzel
 """
 import logging
 import fabular.config as fc
@@ -66,8 +66,8 @@ def is_query(msg, query):
     Check if message is a particular query
 
     Args:
-        msg <bytes>
-        query <str>
+        msg <bytes> - message to be checked
+        query <str> - key query to check against
 
     Kwargs:
         None
@@ -89,7 +89,7 @@ def verbose_level(verbose_mode=3):
         None
 
     Kwargs:
-        verbose_mode <int> - level of verbosity [0-|1|2|3|4|5+]
+        verbose_mode <int> - level of verbosity [0-|1|2|3|4|5]
 
     Return:
         logging_lvl <int> - log levels

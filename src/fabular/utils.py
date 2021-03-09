@@ -1,14 +1,23 @@
 #!/usr/bin/env python
 """
-fabular - utils
-
 @author: phdenzel
+
+fabular - utils
 """
 
 
 def xterm256_color(i):
     """
     The i-th color from the xterm-256 color table
+
+    Args:
+        i <int> - an integer between 0-255
+
+    Kwargs:
+        None
+
+    Return:
+        xterm_clr <str> - ANSI color string
     """
     i = int(i) % 256
     xterm_clr = "\033[38;5;{:03d}m".format(i)
@@ -40,6 +49,15 @@ ansi_map = {
 def id_color(id_str):
     """
     Deterministically assign a color to an ID string (e.g. username)
+
+    Args:
+        id_str <str> - some arbitrary string for color determination
+
+    Kwargs:
+        None
+
+    Return:
+        color <str> - a color name from the fabular.utils.ansi_map table
     """
     signs = ("abcdefghijklmnopqrstuvwxyz"
              "0123456789~!@#$%^&*()"
@@ -54,6 +72,16 @@ def id_color(id_str):
 def assign_color(id_str, color_list, limit=16):
     """
     Assign a unique color to an ID string relative to a list of colors
+
+    Args:
+        id_str <str> - some arbitrary string for color determination
+        color_list <list(str)> - a list with already occupied colors
+
+    Kwargs:
+        limit <int> - number of unique colors allowed
+
+    Return:
+        id_color <str> - a color name from the fabular.utils.ansi_map table
     """
     add = ''
     while id_color(id_str+add) in color_list:

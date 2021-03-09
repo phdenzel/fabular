@@ -12,7 +12,6 @@ coverage = "*"
 pytest-cov = "*"
 bandit = "*"
 check-manifest = "*"
-tox = "*"
 
 [requires]
 python_version = "3.8"

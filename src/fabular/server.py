@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-fabular - server
-
 @author: phdenzel
+
+fabular - server
 """
 import sys
 import threading
@@ -33,7 +33,7 @@ def init_server(host, port, max_conn=fc.MAX_CONN):
 
     Args:
         host <str> - host IP address
-        port <int> - IP port
+        port <int/str> - IP port
 
     Kwargs:
         max_conn <int> - max. number of connections
@@ -177,15 +177,24 @@ def handshake(server, secrets=None):
 
 
 def main(host=HOST, port=PORT):
+    """
+    Start a listening server and handle incoming connections
 
+    Args:
+        None
+
+    Kwargs:
+        host <str> - host IP address
+        port <int/str> - IP port
+
+    Return:
+        None
+    """
     global clients
 
     try:
         # RSA keys
-        pub, priv = generate_RSAk(file_id='server')
-        hashpub = get_hash(pub)
-        key8, hash8 = session_keys()
-        server_secrets = Secrets(priv, pub, hashpub, key8, hash8)
+        server_secrets = Secrets.random(file_id='server')
         if not server_secrets.check_hash():
             sys.exit()
 

@@ -6,8 +6,8 @@ ld = {}
 if os.path.exists("README.md"):
     ld['filename'] = "README.md"
     ld['content_type'] = "text/markdown"
-elif os.path.exists("README.org"):
-    ld['filename'] = "README.org"
+elif os.path.exists("readme_src.org"):
+    ld['filename'] = "readme_src.org"
     ld['content_type'] = "text/plain"
 
 with open(file=ld['filename'], mode="r") as readme_f:
@@ -28,7 +28,7 @@ setup(
     url="https://github.com/phdenzel/fabular",
     keywords="command line, chat, secure, encryption, server, client",
     classifiers=[
-        'Development Status :: 1 - Alpha',
+        'Development Status :: 3 - Alpha',
         'License :: GPLv3',
         'Operating System :: Linux',
         'Programming Language :: Python',

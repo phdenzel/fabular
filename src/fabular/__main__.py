@@ -1,9 +1,9 @@
 """
+@author: phdenzel
+
 fabular - main
 
 Launch a fabular instance which runs a server or connects to an address
-
-@author: phdenzel
 """
 import fabular.config as fc
 

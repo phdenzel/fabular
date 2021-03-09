@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-fabular - crypt
-
 @author: phdenzel
+
+fabular - crypt
 """
 import os
 import hashlib
@@ -30,8 +30,8 @@ def generate_RSAk(size=fc.BLOCK_SIZE,
 
     Kwargs:
         size <int> - byte size of the key
-        file_id <str> -
-        file_dir <str> -
+        file_id <str> - file prefix, e.g. user-id
+        file_dir <str> - target directory; [default: .fabular/rsa/]
 
     Return:
         public, private <bytes> - public/private RSA key
@@ -69,13 +69,13 @@ def session_keys(block_size=8):
         None
 
     Kwargs:
-        byte_size <int> - number of bytes
+        block_size <int> - number of bytes
 
     Return:
         rand, hash <bytes> - sequence of random bits and corresponding hash
 
     Note:
-        if AES encryption cipher is used, byte_size should be
+        if AES encryption cipher is used, block_size should be N16
     """
     rand8 = os.urandom(block_size)
     hash8 = get_hash(rand8)
@@ -124,14 +124,14 @@ def block_pad(msg, block_size=AES.block_size, encoding=fc.DEFAULT_ENC):
     Wrapper for padding a unencoded message
 
     Args:
-        msg <str> - TODO
+        msg <str> - unpadded message
 
     Kwargs:
-        block_size <int> - TODO
+        block_size <int> - default: N16; for AES encryption cipher
         encoding <str> - string coding
 
     Return:
-        msg_pad <bytes> - TODO
+        msg_pad <bytes> - padded message of size N blocks
     """
     if isinstance(msg, str):
         msg = msg.encode(encoding)
@@ -143,14 +143,14 @@ def block_unpad(msg, block_size=AES.block_size, encoding=fc.DEFAULT_ENC):
     Wrapper for unpadding a decoded message
 
     Args:
-        msg <str/bytes> - TODO
+        msg <str/bytes> - padded message
 
     Kwargs:
-        block_size <int> - TODO
+        block_size <int> - default: N16; for AES encryption cipher
         encoding <str> - string coding
 
     Return:
-        msg_unpad <str> - TODO
+        msg_unpad <str> - unpadded message
     """
     msg_unpad = unpad(msg, block_size)
     if isinstance(msg_unpad, bytes):
@@ -163,13 +163,13 @@ def AES_from_key(key, encoding=fc.DEFAULT_ENC):
     Create an AES cipher from a key
 
     Args:
-        key <bytes> - TODO
+        key <bytes> - session key of size 8 or 16
 
     Kwargs:
         encoding <str> - string coding
 
     Return:
-        cipher <Crypto.Cipher object> - TODO
+        cipher <Crypto.Cipher object> - AES cipher object for one-time use
     """
     if isinstance(key, str):
         key = key.encode(encoding)
@@ -192,8 +192,8 @@ def encrypt_msg(message, key=None, **kwargs):
         message <str> - message to be encrypted
 
     Kwargs:
-        key <bytes> - TODO
-        block_size <int> - TODO
+        key <bytes> - session key of size 8 or 16
+        block_size <int> - default: N16; for AES encryption cipher
         encoding <str> - string coding
 
     Return:
@@ -218,8 +218,8 @@ def decrypt_msg(message, key=None, **kwargs):
         message <bytes> - message to be decrypted
 
     Kwargs:
-        key <bytes> - TODO
-        block_size <int> - TODO
+        key <bytes> - session key of size 8 or 16
+        block_size <int> - default: N16; for AES encryption cipher
         encoding <str> - string coding
 
     Return:
@@ -251,17 +251,59 @@ class Secrets(object):
 
     @classmethod
     def random(cls, **kwargs):
+        """
+        Instantiate secret keys randomly
+
+        Args:
+            None
+
+        Kwargs:
+            size <int> - byte size of the key
+            file_id <str> - file prefix, e.g. user-id
+            file_dir <str> - target directory; [default: .fabular/rsa/]
+
+        Return:
+            secrets <Secrets object>
+        """
         pub, priv = generate_RSAk(**kwargs)
         hashpub = get_hash(pub)
         key8, hash8 = session_keys()
         return cls(priv, pub, hashpub, key8, hash8)
 
     @classmethod
-    def from_rsa_file(cls, **kwargs):
-        NotImplemented
+    def from_rsa_fileID(cls, file_id, **kwargs):
+        """
+        Load RSA secrets from file_id
+
+        Args:
+            file_id <str> - file prefix, e.g. user-id
+
+        Kwargs:
+            size <int> - byte size of the key
+            file_dir <str> - target directory; [default: .fabular/rsa/]
+
+        Return:
+            secrets <Secrets object>
+        """
+        pub, priv = generate_RSAk(file_id=file_id, **kwargs)
+        hashpub = get_hash(pub)
+        return cls(priv, pub, hashpub)
 
     @classmethod
     def from_keys(cls, keys):
+        """
+        Load secrets from a concatenated byte-string of keys
+        b'<public>:::<public_hash>:::<session>:::<session_hash>'
+
+        Args:
+            keys <bytes> - concatenated byte-string
+
+        Kwargs:
+            None
+
+        Return:
+            secrets <Secrets object>
+        """
         pub, hash_key, sess_key, sess_hash = keys.split(CCSEQ)
         if check_hash(pub, hash_key) and check_hash(sess_key, sess_hash):
             return cls(public=pub, public_hash=hash_key,
@@ -271,6 +313,19 @@ class Secrets(object):
 
     @classmethod
     def from_pubkey(cls, pubkey):
+        """
+        Load secrets from a concatenated byte-string of public key + hash
+        b'<public>:::<public_hash>'
+
+        Args:
+            pubkey <bytes> - concatenated byte-string
+
+        Kwargs:
+            None
+
+        Return:
+            secrets <Secrets object>
+        """
         pub, hash_key = pubkey.split(CCSEQ)
         if check_hash(pub, hash_key):
             return cls(public=pub, public_hash=hash_key)
@@ -279,6 +334,19 @@ class Secrets(object):
 
     @classmethod
     def from_sesskey(cls, session):
+        """
+        Load secrets from a concatenated byte-string of session key + hash
+        b'<session>:::<session_hash>'
+
+        Args:
+            keys <bytes> - concatenated byte-string
+
+        Kwargs:
+            None
+
+        Return:
+            secrets <Secrets object>
+        """
         sess_key, sess_hash = session.split(CCSEQ)
         if check_hash(sess_key, sess_hash):
             return cls(session=sess_key, session_hash=sess_hash)
@@ -318,6 +386,15 @@ class Secrets(object):
         self.session, self.session_hash = sesskey.split(CCSEQ)
 
     def check_hash(self):
+        """
+        Check hashes for public and/or session key
+
+        Args/Kwargs:
+            None
+
+        Return:
+            hash_check <bool> - comparison of hashes to their keys
+        """
         hash_check = False
         if self.public and self.public_hash:
             hash_check = check_hash(self.public, self.public_hash)
@@ -327,6 +404,9 @@ class Secrets(object):
 
     @property
     def key128(self):
+        """
+        A 128-bit key based on the (random) session key
+        """
         if self.session and len(self.session) == 8:
             return self.session + self.session[::-1]
         elif self.session and len(self.session) == 16:
@@ -339,6 +419,9 @@ class Secrets(object):
 
     @property
     def RSA(self):
+        """
+        RSA cipher object table from public and/or private keys
+        """
         rsa = {}
         if self.private:
             rsa['private'] = RSA.importKey(self.private)
@@ -356,7 +439,7 @@ class Secrets(object):
             data <str> - message to be encrypted
 
         Kwargs:
-            session_key <bytes> - TODO
+            session_key <bytes> - (random) session key of size 8 or 16
             encoding <str> - string coding
 
         Return:
@@ -380,7 +463,7 @@ class Secrets(object):
             data <str> - message to be encrypted
 
         Kwargs:
-            session_key <bytes> - TODO
+            session_key <bytes> - (random) session key of size 8 or 16
             encoding <str> - string coding
 
         Return:
@@ -404,6 +487,20 @@ class Secrets(object):
     def AES_encrypt(self, message, key=None,
                     block_size=AES.block_size,
                     encoding=fc.DEFAULT_ENC):
+        """
+        Fast AES encryption of a message
+
+        Args:
+            message <bytes> - message to be encrypted
+
+        Kwargs:
+            key <bytes> - session key of size 8 or 16
+            block_size <int> - default: N16; for AES encryption cipher
+            encoding <str> - string coding
+
+        Return:
+            msg_enc <bytes> - encrypted message
+        """
         if not message:
             return message
         key = self.session if key is None else key
@@ -419,6 +516,20 @@ class Secrets(object):
     def AES_decrypt(self, message, key=None,
                     block_size=AES.block_size,
                     encoding=fc.DEFAULT_ENC):
+        """
+        Fast AES decryption of a message
+
+        Args:
+            message <bytes> - message to be decrypted
+
+        Kwargs:
+            key <bytes> - session key of size 8 or 16
+            block_size <int> - default: N16; for AES encryption cipher
+            encoding <str> - string coding
+
+        Return:
+            msg_dec <str> - decrypted message
+        """
         if not message:
             return message
         key = self.session if key is None else key

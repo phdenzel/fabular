@@ -5,7 +5,8 @@ dev: readme
 	@pipenv install -e .
 
 readme:
-	@emacs --batch README.org -f org-md-export-to-markdown
+	@emacs --batch readme_src.org -f org-md-export-to-markdown
+	@mv readme_src.md README.md
 
 prereq:
 	@pip install pipenv
