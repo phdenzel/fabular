@@ -1,49 +1,58 @@
 #+AUTHOR: Philipp Denzel
 #+OPTIONS: num:nil
 #+OPTIONS: toc:nil
-
-
 * fabular
 
-[[https://travis-ci.com/phdenzel/fabular][https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master]]
+#+BEGIN_export markdown
+[![Build Status](https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master)](https://travis-ci.com/phdenzel/fabular)
+#+END_export
+
 
 A command-line chat app for secure communication between you and your friends!
 
 Key features:
-- hybrid encryption scheme to establish a connection
-- session-randomized AES (Rijndael) encryption in EAX mode for messages
+- hybrid encryption scheme for connection handshake
+- session-randomized Fernet (AES-128-CBC) encryption for all messages
 - username-specific colors
 
 
 ** Requirements
 
 - ~python3~
-- ~pipenv~
+- ~pipenv~ (for dev features)
 - a server with an open port
 - at least two command-line machines to chat
+
 
 
 ** Install
 
 Simply type ~pip install fabular~.
 
-To install from source, you may type
+To install from source, you may type ~make prereq && make dev~, which
+installs ~pipenv~ and executes
 #+BEGIN_SRC bash
 pipenv install --dev
 pipenv install -e .
 #+END_SRC
 
 
+
 ** Usage
+
+For more information type
+#+BEGIN_SRC bash
+[pipenv run] fabular -h
+#+END_SRC
 
 Run fabular in server-mode (set up a fabular server for clients to connect to):
 #+BEGIN_SRC bash
-[pipenv run] fabular -s $*
+[pipenv run] fabular -s --host 127.0.0.1 --port 50120
 #+END_SRC
 
 Run fabular in client-mode (connecting to a chat server):
 #+BEGIN_SRC bash
-[pipenv run] fabular -c $*
+[pipenv run] fabular -c --host 127.0.0.1 --port 50120
 #+END_SRC
 
 Run fabular in test-mode:
