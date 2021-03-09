@@ -7,10 +7,12 @@ fabular - server
 import sys
 import threading
 import socket
+import getpass
 from fabular.comm import fab_msg
 from fabular.comm import fab_log
 from fabular.comm import query_msg
 from fabular.client import Clients
+from fabular.crypt import pw_prompt
 from fabular.crypt import generate_RSAk, session_keys
 from fabular.crypt import get_hash
 from fabular.crypt import Secrets
@@ -193,8 +195,14 @@ def main(host=HOST, port=PORT):
     global clients
 
     try:
+        # Name definitions
+        file_id = input('Session name: ')
+        if not file_id:
+            file_id = 'server'
+        pw = pw_prompt(confirm=True)
         # RSA keys
         server_secrets = Secrets.random(file_id='server')
+        server_secrets.pw = pw
         if not server_secrets.check_hash():
             sys.exit()
 

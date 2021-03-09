@@ -1,3 +1,8 @@
+#+AUTHOR: Philipp Denzel
+#+OPTIONS: num:nil
+#+OPTIONS: toc:nil
+
+
 * fabular
 
 [[https://travis-ci.com/phdenzel/fabular][https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master]]

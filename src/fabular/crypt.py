@@ -5,11 +5,20 @@
 fabular - crypt
 """
 import os
+import getpass
 import hashlib
+
 from Crypto import Random
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.Padding import pad, unpad
 from Crypto.PublicKey import RSA
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding as asym_pad
+from cryptography.hazmat.primitives import serialization, hashes, ciphers
+from cryptography.hazmat.primitives import padding as sym_pad
+from cryptography.fernet import Fernet
+
 from fabular.comm import fab_log
 from fabular.utils import mkdir_p
 import fabular.config as fc
@@ -18,7 +27,33 @@ import fabular.config as fc
 CCSEQ = b':::'  # concat sequence
 
 
+def pw_prompt(confirm=True):
+    """
+    Trigger prompt to input a password phrase with an optional confirmation step
+
+    Args:
+        None
+
+    Kwargs:
+        confirm <bool> - add a confirmation step
+
+    Return:
+        pw <bytes> - password input
+    """
+    pw = getpass.getpass(prompt='Passphrase: ',
+                         stream=None).encode(fc.DEFAULT_ENC)
+    if confirm:
+        pw2 = getpass.getpass(prompt='Confirm passphrase: ',
+                              stream=None).encode(fc.DEFAULT_ENC)
+        if pw != pw2:
+            raise OSError("Passwords don't match!")
+    if pw:
+        return pw
+    return None
+
+
 def generate_RSAk(size=fc.BLOCK_SIZE,
+                  password=None,
                   file_id='id',
                   file_dir='.fabular/rsa'):
     """
@@ -30,6 +65,7 @@ def generate_RSAk(size=fc.BLOCK_SIZE,
 
     Kwargs:
         size <int> - byte size of the key
+        password <bytes> - optional password
         file_id <str> - file prefix, e.g. user-id
         file_dir <str> - target directory; [default: .fabular/rsa/]
 
@@ -42,16 +78,33 @@ def generate_RSAk(size=fc.BLOCK_SIZE,
         pubfile = os.path.join(file_dir, file_id+'_rsa.pub')
         privfile = os.path.join(file_dir, file_id+'_rsa')
         mkdir_p(file_dir)
+    phrase = serialization.BestAvailableEncryption(password) \
+        if password else serialization.NoEncryption()
+
     if os.path.exists(pubfile) and os.path.exists(privfile):
         with open(pubfile, 'rb') as f:
-            public = RSA.importKey(f.read()).exportKey(format='PEM')
+            pubkey = serialization.load_pem_public_key(f.read())
+            public = pubkey.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.PKCS1)
         with open(privfile, 'rb') as f:
-            private = RSA.importKey(f.read()).exportKey(format='PEM')
+            privkey = serialization.load_pem_private_key(f.read(), password)
+            private = privkey.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=phrase)
     else:
-        random = Random.new().read
-        RSAkey = RSA.generate(size, random)
-        public = RSAkey.publickey().exportKey(format='PEM')
-        private = RSAkey.exportKey(format='PEM')
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=size)
+        private = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=phrase)
+        public_key = private_key.public_key()
+        public = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.PKCS1)
         if pubfile:
             with open(pubfile, 'wb') as f:
                 f.write(public)
@@ -61,7 +114,78 @@ def generate_RSAk(size=fc.BLOCK_SIZE,
     return public, private
 
 
-def session_keys(block_size=8):
+def RSA_from_key(data, password=None, encoding=fc.DEFAULT_ENC):
+    """
+    RSA cipher instance from the byte data
+
+    Args:
+        data <bytes> - public/private byte data
+
+    Kwargs:
+        password <bytes> - optional password
+        encoding <str> - string coding
+
+    Return:
+        cipher <cryptography.hazmat.RSAKey object> - RSA cipher
+    """
+    if isinstance(data, str):
+        data = data.encode(fc.DEFAULT_ENC)
+    if b'PRIVATE' in data:
+        cipher = serialization.load_pem_private_key(data, password)
+    else:
+        cipher = serialization.load_pem_public_key(data)
+    return cipher
+
+
+def RSA_encrypt(message, cipher, encoding=fc.DEFAULT_ENC):
+    """
+    Use a (public) RSA cipher to encrypt a message
+
+    Args:
+        message <bytes> - message to be encrypted
+        cipher <cryptography.hazmat.RSAKey object> - encryption cipher
+
+    Kwargs:
+        encoding <str> - string coding
+
+    Return:
+        enc_msg <bytes> - encrypted message
+    """
+    if isinstance(message, str):
+        message = message.encode(encoding)
+    enc_msg = cipher.encrypt(
+        message,
+        asym_pad.OAEP(mgf=asym_pad.MGF1(algorithm=hashes.SHA256()),
+                      algorithm=hashes.SHA256(),
+                      label=None))
+    return enc_msg
+
+
+def RSA_decrypt(enc_msg, cipher, encoding=fc.DEFAULT_ENC):
+    """
+    Use a (private) RSA cipher to decrypt a message
+
+    Args:
+        enc_msg <bytes> - message to be decrypted
+        cipher <cryptography.hazmat.RSAKey object> - decryption cipher
+
+    Kwargs:
+        encoding <str> - string coding
+
+    Return:
+        dec_msg <bytes> - decrypted message
+    """
+    if isinstance(enc_msg, str):
+        enc_msg = enc_msg.encode(encoding)
+    dec_msg = cipher.decrypt(
+        enc_msg,
+        asym_pad.OAEP(mgf=asym_pad.MGF1(algorithm=hashes.SHA256()),
+                      algorithm=hashes.SHA256(),
+                      label=None))
+    return dec_msg
+
+
+def session_keys(fernet_key=True, block_size=8):
     """
     Create a session key and hash from a number of random bits
 
@@ -77,7 +201,10 @@ def session_keys(block_size=8):
     Note:
         if AES encryption cipher is used, block_size should be N16
     """
-    rand8 = os.urandom(block_size)
+    if fernet_key:
+        rand8 = Fernet.generate_key()
+    else:
+        rand8 = os.urandom(block_size)
     hash8 = get_hash(rand8)
     return rand8, hash8
 
@@ -119,7 +246,7 @@ def check_hash(key, hash_key, encoding=fc.DEFAULT_ENC):
     return hash_pub == hash_key
 
 
-def block_pad(msg, block_size=AES.block_size, encoding=fc.DEFAULT_ENC):
+def block_pad(msg, block_size=128, encoding=fc.DEFAULT_ENC):
     """
     Wrapper for padding a unencoded message
 
@@ -135,10 +262,13 @@ def block_pad(msg, block_size=AES.block_size, encoding=fc.DEFAULT_ENC):
     """
     if isinstance(msg, str):
         msg = msg.encode(encoding)
-    return pad(msg, block_size)
+    padder = sym_pad.PKCS7(block_size).padder()
+    pad_msg = padder.update(msg)
+    pad_msg += padder.finalize()
+    return pad_msg
 
 
-def block_unpad(msg, block_size=AES.block_size, encoding=fc.DEFAULT_ENC):
+def block_unpad(msg, block_size=128, encoding=fc.DEFAULT_ENC):
     """
     Wrapper for unpadding a decoded message
 
@@ -152,13 +282,15 @@ def block_unpad(msg, block_size=AES.block_size, encoding=fc.DEFAULT_ENC):
     Return:
         msg_unpad <str> - unpadded message
     """
-    msg_unpad = unpad(msg, block_size)
+    unpadder = sym_pad.PKCS7(block_size).unpadder()
+    msg_unpad = unpadder.update(msg)
+    msg_unpad = msg_unpad + unpadder.finalize()
     if isinstance(msg_unpad, bytes):
         msg_unpad = msg_unpad.decode(encoding)
     return msg_unpad
 
 
-def AES_from_key(key, encoding=fc.DEFAULT_ENC):
+def AES_from_key(key, iv=None, iv_block=16, encoding=fc.DEFAULT_ENC):
     """
     Create an AES cipher from a key
 
@@ -166,10 +298,12 @@ def AES_from_key(key, encoding=fc.DEFAULT_ENC):
         key <bytes> - session key of size 8 or 16
 
     Kwargs:
+        iv_block <int> - size of the random initialization vector for CBC mode
+        iv <bytes> - initialization vector
         encoding <str> - string coding
 
     Return:
-        cipher <Crypto.Cipher object> - AES cipher object for one-time use
+        cipher <cryptography..Cipher object> - AES cipher
     """
     if isinstance(key, str):
         key = key.encode(encoding)
@@ -177,23 +311,29 @@ def AES_from_key(key, encoding=fc.DEFAULT_ENC):
         key2 = key + key[::-1]
     elif len(key) == 16:
         key2 = key
+    elif len(key) > 16:
+        key2 = key[:16]
     else:
         fab_log('AES requires a cipher key of length of N16!', verbose_mode=5)
         return
-    AES_cipher = AES.new(key2, AES.MODE_CBC, IV=key2)
+    iv = iv if iv is not None else key2
+    AES_cipher = ciphers.Cipher(
+        algorithm=ciphers.algorithms.AES(key2),
+        mode=ciphers.modes.CBC(iv))
     return AES_cipher
 
 
-def encrypt_msg(message, key=None, **kwargs):
+def AES_encrypt(message, key, **kwargs):
     """
     Encrypt a message using AES cipher
 
     Args:
         message <str> - message to be encrypted
+        key <bytes> - session key of size 8 or 16
 
     Kwargs:
-        key <bytes> - session key of size 8 or 16
-        block_size <int> - default: N16; for AES encryption cipher
+        iv_block <int> - size of the random initialization vector for CBC mode
+        iv <bytes> - initialization vector
         encoding <str> - string coding
 
     Return:
@@ -201,25 +341,27 @@ def encrypt_msg(message, key=None, **kwargs):
     """
     if not message:
         return message
-    message = block_pad(message, **kwargs)
+    message = block_pad(message)
     if key is None:
         fab_log('Encryption requires a cipher key!', verbose_mode=4)
         return
-    cipher = AES_from_key(key)
-    msg_enc = cipher.encrypt(message)
+    cipher = AES_from_key(key, **kwargs)
+    encoder = cipher.encryptor()
+    msg_enc = encoder.update(message) + encoder.finalize()
     return msg_enc
 
 
-def decrypt_msg(message, key=None, **kwargs):
+def AES_decrypt(message, key, **kwargs):
     """
     Decrypt a message using AES cipher
 
     Args:
         message <bytes> - message to be decrypted
+        key <bytes> - session key of size 8 or 16
 
     Kwargs:
-        key <bytes> - session key of size 8 or 16
-        block_size <int> - default: N16; for AES encryption cipher
+        iv_block <int> - size of the random initialization vector for CBC mode
+        iv <bytes> - initialization vector
         encoding <str> - string coding
 
     Return:
@@ -230,10 +372,73 @@ def decrypt_msg(message, key=None, **kwargs):
     if key is None:
         fab_log('Decryption requires a cipher key!', verbose_mode=4)
         return
-    cipher = AES_from_key(key)
-    msg_dec = cipher.decrypt(message)
-    msg_dec = block_unpad(msg_dec, **kwargs)
+    cipher = AES_from_key(key, **kwargs)
+    dec_cipher = cipher.decryptor()
+    msg_dec = dec_cipher.update(message) + dec_cipher.finalize()
+    msg_dec = block_unpad(msg_dec)
     return msg_dec
+
+
+def Fernet_from_key(key, encoding=fc.DEFAULT_ENC):
+    """
+    Create a Fernet cipher from a key
+
+    Args:
+        key <bytes> - session key of size 8 or 16
+
+    Kwargs:
+        encoding <str> - string coding
+
+    Return:
+        cipher <cryptography.fernet.Fernet object> - Fernet cipher
+    """
+    if isinstance(key, str):
+        key = key.encode(encoding)
+    return Fernet(key)
+
+
+def Fernet_encrypt(message, key, encoding=fc.DEFAULT_ENC):
+    """
+    Fernet encryption scheme
+
+    Args:
+        message <bytes> - message to be encrypted
+        key <bytes> - Fernet session key
+
+    Kwargs:
+        encoding <str> - string coding
+
+    Return:
+        msg_enc <bytes> - encrypted message
+    """
+    if not message:
+        return message
+    if isinstance(message, str):
+        message = message.encode(encoding)
+    f = Fernet_from_key(key)
+    return f.encrypt(message)
+
+
+def Fernet_decrypt(message, key, encoding=fc.DEFAULT_ENC):
+    """
+    Fernet decryption scheme
+
+    Args:
+        message <bytes> - message to be decrypted
+        key <bytes> - Fernet session key
+
+    Kwargs:
+        encoding <str> - string coding
+
+    Return:
+        msg_dec <bytes> - decrypted message
+    """
+    if not message:
+        return message
+    if isinstance(message, str):
+        message = message.encode(encoding)
+    f = Fernet_from_key(key)
+    return f.decrypt(message)
 
 
 class Secrets(object):
@@ -248,6 +453,7 @@ class Secrets(object):
         self.private = private
         self.session = session
         self.session_hash = session_hash
+        self.pw = None
 
     @classmethod
     def random(cls, **kwargs):
@@ -259,6 +465,7 @@ class Secrets(object):
 
         Kwargs:
             size <int> - byte size of the key
+            password <bytes> - optional password
             file_id <str> - file prefix, e.g. user-id
             file_dir <str> - target directory; [default: .fabular/rsa/]
 
@@ -267,7 +474,7 @@ class Secrets(object):
         """
         pub, priv = generate_RSAk(**kwargs)
         hashpub = get_hash(pub)
-        key8, hash8 = session_keys()
+        key8, hash8 = session_keys(fernet_key=True)
         return cls(priv, pub, hashpub, key8, hash8)
 
     @classmethod
@@ -411,8 +618,10 @@ class Secrets(object):
             return self.session + self.session[::-1]
         elif self.session and len(self.session) == 16:
             return self.session
+        elif self.session and len(self.session) > 16:
+            return self.session[:16]
         else:
-            rand16 = Random.get_random_bytes(16)
+            rand16 = os.urandom(16)
             self.session = rand16
             self.session_hash = get_hash(rand16)
             return rand16
@@ -424,12 +633,66 @@ class Secrets(object):
         """
         rsa = {}
         if self.private:
-            rsa['private'] = RSA.importKey(self.private)
+            rsa['private'] = RSA_from_key(self.private, self.pw)
             rsa['priv'] = rsa['private']
         if self.public:
-            rsa['public'] = RSA.importKey(self.public)
+            rsa['public'] = RSA_from_key(self.public)
             rsa['pub'] = rsa['public']
         return rsa
+
+    def RSA_encrypt(self, data, encoding=fc.DEFAULT_ENC):
+        """
+        Use a (public) RSA cipher to encrypt a message
+
+        Args:
+            data <bytes> - message to be encrypted
+
+        Kwargs:
+            encoding <str> - string coding
+
+        Return:
+            enc_msg <bytes> - encrypted message
+        """
+        enc_msg = RSA_encrypt(data, self.RSA['public'], encoding=encoding)
+        return enc_msg
+
+    def RSA_decrypt(self, data, encoding=fc.DEFAULT_ENC):
+        """
+        Use a (private) RSA cipher to decrypt a message
+
+        Args:
+            enc_msg <bytes> - message to be decrypted
+            cipher <cryptography.hazmat.RSAKey object> - decryption cipher
+
+        Kwargs:
+            encoding <str> - string coding
+
+        Return:
+            dec_msg <bytes> - decrypted message        
+        """
+        dec_msg = RSA_decrypt(data, self.RSA['private'], encoding=encoding)
+        return dec_msg
+
+    # def hybrid_encrypt(self, data, session_key=None, encoding=fc.DEFAULT_ENC):
+    #     """
+    #     Hybrid encryption of a message using RSA with PKCS#1 OAEP/AES cipher
+    #     Args:
+    #         data <str> - message to be encrypted
+    #     Kwargs:
+    #         session_key <bytes> - (random) session key of size 8 or 16
+    #         encoding <str> - string coding
+    #     Return:
+    #         enc_msg <bytes> - encrypted message
+    #     """
+    #     if isinstance(data, str):
+    #         data = data.encode(encoding)
+    #     if session_key is None or len(session_key) != 16:
+    #         session_key = self.key128
+    #     rsa_cipher = PKCS1_OAEP.new(self.RSA['public'])
+    #     enc_session_key = rsa_cipher.encrypt(session_key)
+    #     aes_cipher = AES.new(session_key, AES.MODE_EAX)
+    #     enc_msg, tag = aes_cipher.encrypt_and_digest(data)
+    #     return CCSEQ.join([enc_session_key, aes_cipher.nonce, tag, enc_msg])
 
     def hybrid_encrypt(self, data, session_key=None, encoding=fc.DEFAULT_ENC):
         """
@@ -447,10 +710,10 @@ class Secrets(object):
         """
         if isinstance(data, str):
             data = data.encode(encoding)
-        if session_key is None or len(session_key) != 16:
-            session_key = self.key128
-        rsa_cipher = PKCS1_OAEP.new(self.RSA['public'])
-        enc_session_key = rsa_cipher.encrypt(session_key)
+        # if session_key is None or len(session_key) != 16:
+        #     session_key = self.key128
+        enc_session_key = self.RSA_encrypt(self.session)
+        
         aes_cipher = AES.new(session_key, AES.MODE_EAX)
         enc_msg, tag = aes_cipher.encrypt_and_digest(data)
         return CCSEQ.join([enc_session_key, aes_cipher.nonce, tag, enc_msg])
@@ -544,8 +807,44 @@ class Secrets(object):
 
 if __name__ == "__main__":
 
-    from tests.prototype import SequentialTestLoader
-    from tests.crypt_test import CryptModuleTest
-    loader = SequentialTestLoader()
-    loader.proto_load(CryptModuleTest)
-    loader.run_suites()
+    # from tests.prototype import SequentialTestLoader
+    # from tests.crypt_test import CryptModuleTest
+    # loader = SequentialTestLoader()
+    # loader.proto_load(CryptModuleTest)
+    # loader.run_suites()
+    ###########################################################################
+
+    pw = pw_prompt(confirm=False)
+    phrase = serialization.BestAvailableEncryption(pw) \
+        if pw else serialization.NoEncryption()
+
+    test_msg = "Eureka! Encrypt+Decrypt success!"
+    pub, priv = generate_RSAk(size=4096, file_id='phdenzel', password=pw)
+    rsa_pubk = RSA_from_key(pub)
+    rsa_privk = RSA_from_key(priv, pw)
+    # print(priv)
+    # print(rsa_pubk)
+
+    print("RSA ciphering...")
+    ciphertext = RSA_encrypt(test_msg, rsa_pubk)
+    dec_msg = RSA_decrypt(ciphertext, rsa_privk)
+    print(ciphertext)
+    print(dec_msg)
+
+    key, h = session_keys(fernet_key=True)
+    print("AES ciphering...")
+    # key = b'\xe4W\x8fOnjg]m\x15\xef\x85\x0f\x15\x9d\x97'
+    ciphertext = AES_encrypt(test_msg, key)
+    dec_msg = AES_decrypt(ciphertext, key)
+    print(ciphertext)
+    print(dec_msg)
+
+    print("Fernet ciphering...")
+    key, h = session_keys(fernet_key=True)
+    ciphertext = Fernet_encrypt(test_msg, key)
+    dec_msg = Fernet_decrypt(ciphertext, key)
+    print(ciphertext)
+    print(dec_msg)
+
+    
+    

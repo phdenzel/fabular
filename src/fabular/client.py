@@ -7,12 +7,14 @@ fabular - client
 import sys
 import socket
 import threading
+import getpass
 import fabular.config as fc
 from fabular.config import HOST
 from fabular.config import PORT
 from fabular.comm import fab_log
 from fabular.comm import is_query
 from fabular.comm import cmd_signals
+from fabular.crypt import pw_prompt
 from fabular.crypt import generate_RSAk
 from fabular.crypt import get_hash
 from fabular.crypt import Secrets
@@ -255,10 +257,14 @@ def main():
     accepted = False
     decode = False
     stop_threads = False
+    
+    # Name definitions
     username = input('Enter your username: ')
+    pw = pw_prompt(confirm=True)
 
     # RSA keys
     client_secrets = Secrets.from_rsa_fileID(f'{username}')
+    client_secrets.pw = pw
     if not client_secrets.check_hash():
         sys.exit()
 

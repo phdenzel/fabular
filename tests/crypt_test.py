@@ -5,6 +5,7 @@ fabular - tests.crypt_test
 """
 import os
 import fabular.crypt as fcrypt
+from unittest import mock
 from tests.prototype import UnitTestPrototype
 from tests.prototype import SequentialTestLoader
 
@@ -19,6 +20,23 @@ class CryptModuleTest(UnitTestPrototype):
 
     def tearDown(self):
         print("")
+
+    @mock.patch("getpass.getpass")
+    def test_pw_prompt_confirm(self, password):
+        """ # fabular.crypt.pw_prompt(confirm=True) """
+        self.printf(dict(confirm=True))
+        with self.assertRaises(OSError) as context:
+            password.side_effect = OSError("Passwords don't match!")
+            fcrypt.pw_prompt(confirm=True)
+            self.assertTrue("Passwords don't match!" in context.exception)
+
+    @mock.patch("getpass.getpass")
+    def test_pw_prompt_once(self, password):
+        """ # fabular.crypt.pw_prompt(confirm=False) """
+        self.printf(dict(confirm=False))
+        password.return_value = "Some phrase"
+        pw = fcrypt.pw_prompt(confirm=False)
+        self.printout(pw)
 
     def test_generate_RSAk(self):
         """ # fabular.crypt.generate_RSAk """
@@ -52,9 +70,21 @@ class CryptModuleTest(UnitTestPrototype):
         os.rmdir(os.path.dirname(kw['file_dir']))
         self.printout((pub, priv))
 
+    def test_RSA_from_key(self):
+        """ # fabular.crypt.RSA_from_key """
+        pass  # TODO
+
+    def test_RSA_encrypt(self):
+        """ # fabular.crypt.RSA_encrypt """
+        pass
+
+    def test_RSA_decrypt(self):
+        """ # fabular.crypt.RSA_decrypt """
+        pass
+
     def test_session_keys(self):
         """ # fabular.crypt.session_keys """
-        kw = dict(block_size=8)
+        kw = dict(fernet_key=False, block_size=8)
         self.printf(kw)
         k, h = fcrypt.session_keys(**kw)
         self.assertTrue(k)
@@ -62,6 +92,16 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertIsInstance(k, bytes)
         self.assertIsInstance(h, bytes)
         self.assertEqual(len(k), kw['block_size'])
+        self.printout((k, h))
+
+        kw = dict(fernet_key=True)
+        self.printf(kw)
+        k, h = fcrypt.session_keys(**kw)
+        self.assertTrue(k)
+        self.assertTrue(h)
+        self.assertIsInstance(k, bytes)
+        self.assertIsInstance(h, bytes)
+        # self.assertNotEqual()
         self.printout((k, h))
 
     def test_get_hash(self):
@@ -96,55 +136,75 @@ class CryptModuleTest(UnitTestPrototype):
 
     def test_block_pad(self):
         """ # fabular.crypt.block_pad """
-        unpadd = b'a'
+        padded_test = b'a\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f'
+        unpadd = 'a'
         self.printf(unpadd)
         padded = fcrypt.block_pad(unpadd)
         self.assertEqual(len(padded) % 16, 0)
+        self.assertEqual(len(padded), len(padded_test))
+        self.assertEqual(padded, padded_test)
         self.printout(padded)
 
-        unpadd = b'abcdefghijklmnop'
+        padded_test = (
+            b'abcdefghijklmnop\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10'
+            b'\x10\x10\x10\x10')
+        unpadd = 'abcdefghijklmnop'
         self.printf(unpadd)
         padded = fcrypt.block_pad(unpadd)
         self.assertEqual(len(padded) % 16, 0)
+        self.assertEqual(len(padded), len(padded_test))
+        self.assertEqual(padded, padded_test)
         self.printout(padded)
 
-        unpadd = b'abcdefghijklmno'
+        padded_test = b'abcdefghijklmno\x01'
+        unpadd = 'abcdefghijklmno'
         self.printf(unpadd)
         padded = fcrypt.block_pad(unpadd)
         self.assertEqual(len(padded) % 16, 0)
+        self.assertEqual(len(padded), len(padded_test))
+        self.assertEqual(padded, padded_test)
         self.printout(padded)
 
     def test_block_unpad(self):
         """ # fabular.crypt.block_unpad """
+        unpadd_test = 'a'
+        padded = b'a\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f'
+        self.printf(padded)
+        self.assertEqual(len(padded) % 16, 0)
+        unpadd = fcrypt.block_unpad(padded)
+        self.assertEqual(len(unpadd), len(unpadd_test))
+        self.assertEqual(unpadd, unpadd_test)
+        self.printout(unpadd)
+
+        unpadd_test = 'abcdefghijklmnop'
+        padded = (
+            b'abcdefghijklmnop\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10'
+            b'\x10\x10\x10\x10')
+        self.printf(padded)
+        self.assertEqual(len(padded) % 16, 0)
+        unpadd = fcrypt.block_unpad(padded)
+        self.assertEqual(len(unpadd), len(unpadd_test))
+        self.assertEqual(unpadd, unpadd_test)
+        self.printout(unpadd)
+
+        unpadd_test = 'abcdefghijklmno'
         padded = b'abcdefghijklmno\x01'
         self.printf(padded)
         self.assertEqual(len(padded) % 16, 0)
         unpadd = fcrypt.block_unpad(padded)
-        self.printout(unpadd)
-
-        padded = (b'abcdefghijklmnop\x10\x10\x10\x10\x10\x10'
-                  b'\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10')
-        self.printf(padded)
-        self.assertEqual(len(padded) % 16, 0)
-        unpadd = fcrypt.block_unpad(padded)
-        self.printout(unpadd)
-
-        padded = (b'a\x0f\x0f\x0f\x0f\x0f\x0f\x0f'
-                  b'\x0f\x0f\x0f\x0f\x0f\x0f\x0f\x0f')
-        self.printf(padded)
-        self.assertEqual(len(padded) % 16, 0)
-        unpadd = fcrypt.block_unpad(padded)
+        self.assertEqual(len(unpadd), len(unpadd_test))
+        self.assertEqual(unpadd, unpadd_test)
         self.printout(unpadd)
 
     def test_AES_from_key(self):
         """ # fabular.crypt.AES_from_key """
-        k = b'1234567890'*2
+        k = b'123456'
         self.printf(k)
         cipher = fcrypt.AES_from_key(k)
         self.assertIsNone(cipher)
         self.printout(cipher)
 
-        k = b'12345678'*2
+        k = b'12345678'
         self.printf(k)
         cipher = fcrypt.AES_from_key(k)
         self.assertIsNotNone(cipher)
@@ -156,8 +216,14 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertIsNotNone(cipher)
         self.printout(cipher)
 
-    def test_encrypt_msg(self):
-        """ # fabular.crypt.encrypt_msg """
+        k = b'12345678'*4
+        self.printf(k)
+        cipher = fcrypt.AES_from_key(k)
+        self.assertIsNotNone(cipher)
+        self.printout(cipher)
+
+    def test_AES_encrypt(self):
+        """ # fabular.crypt.AES_encrypt """
         test_msg = "Eureka! Encrypt+Decrypt success!"
         k = b'\xbdhe<\x87\x967\xcf'
         result = (
@@ -165,25 +231,25 @@ class CryptModuleTest(UnitTestPrototype):
             b'\xd65\x9e~\xd9\x1e\xa2<\xdc\x82U\xfe\xf8\x13_\x99|\xdeI\xb9\x9f'
             b'\xb4>\x8c')
         self.printf((test_msg, {'key': k}))
-        msg_enc = fcrypt.encrypt_msg(test_msg, key=k)
+        msg_enc = fcrypt.AES_encrypt(test_msg, key=k)
         self.assertIsInstance(msg_enc, bytes)
         self.assertEqual(msg_enc, result)
         self.printout(msg_enc)
 
         self.printf((test_msg, {'key': None}))
-        msg = fcrypt.encrypt_msg(test_msg, key=None)
+        msg = fcrypt.AES_encrypt(test_msg, key=None)
         self.assertIsNone(msg)
         self.printout(msg)
 
         self.printf(('', {'key': k}))
-        msg = fcrypt.encrypt_msg('', key=k)
+        msg = fcrypt.AES_encrypt('', key=k)
         self.assertFalse(msg)
         self.assertIsInstance(msg, type(''))
         self.assertEqual(msg, '')
         self.printout(msg)
 
-    def test_decrypt_msg(self):
-        """ # fabular.crypt.decrypt_msg """
+    def test_AES_decrypt(self):
+        """ # fabular.crypt.AES_decrypt """
         msg_enc = (
             b'\x9f\xab\xf0K\x1ad\xf5O?\xaf\xbe\xdc3\n\xd9?KX\x0f\x12#{\x9d\x06'
             b'\xd65\x9e~\xd9\x1e\xa2<\xdc\x82U\xfe\xf8\x13_\x99|\xdeI\xb9\x9f'
@@ -191,22 +257,34 @@ class CryptModuleTest(UnitTestPrototype):
         k = b'\xbdhe<\x87\x967\xcf'
         test_msg = "Eureka! Encrypt+Decrypt success!"
         self.printf((msg_enc, {'key': k}))
-        msg_dec = fcrypt.decrypt_msg(msg_enc, key=k)
+        msg_dec = fcrypt.AES_decrypt(msg_enc, key=k)
         self.assertIsInstance(msg_dec, str)
         self.assertEqual(msg_dec, test_msg)
         self.printout(msg_dec)
 
         self.printf((msg_enc, {'key': None}))
-        msg = fcrypt.decrypt_msg(msg_enc, key=None)
+        msg = fcrypt.AES_decrypt(msg_enc, key=None)
         self.assertIsNone(msg)
         self.printout(msg)
 
         self.printf(('', {'key': k}))
-        msg = fcrypt.decrypt_msg('', key=k)
+        msg = fcrypt.AES_decrypt('', key=k)
         self.assertFalse(msg)
         self.assertIsInstance(msg, type(''))
         self.assertEqual(msg, '')
         self.printout(msg)
+
+    def test_Fernet_from_key(self):
+        """ # fabular.crypt.Fernet_from_key """
+        pass  # TODO
+
+    def test_Fernet_encrypt(self):
+        """ # fabular.crypt.Fernet_encrypt """
+        pass
+
+    def test_Fernet_decrypt(self):
+        """ # fabular.crypt.Fernet_decrypt """
+        pass
 
     def test_Secrets(self):
         """ # fabular.crypt.Secrets """
