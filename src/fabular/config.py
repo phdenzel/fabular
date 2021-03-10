@@ -15,7 +15,7 @@ DEFAULT_ENC = 'utf-8'
 
 # ENCRYPTION
 ENCRYPTION = True
-BLOCK_SIZE = 1024  # larger blocks = exponentially slower encryption
+BLOCK_SIZE = 4096  # larger blocks = exponentially slower encryption
 
 # LOGGING
 VERBOSE = 3

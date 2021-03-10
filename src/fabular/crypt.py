@@ -494,7 +494,7 @@ class Secrets(object):
         return cls(priv, pub, hashpub)
 
     @classmethod
-    def from_keys(cls, keys):
+    def from_keys(cls, keys, encoding=fc.DEFAULT_ENC):
         """
         Load secrets from a concatenated byte-string of keys
         b'<public>:::<public_hash>:::<session>:::<session_hash>'
@@ -508,6 +508,8 @@ class Secrets(object):
         Return:
             secrets <Secrets object>
         """
+        if isinstance(keys, str):
+            keys = keys.encode(encoding)
         pub, hash_key, sess_key, sess_hash = keys.split(CCSEQ)
         if check_hash(pub, hash_key) and check_hash(sess_key, sess_hash):
             return cls(public=pub, public_hash=hash_key,
@@ -516,7 +518,7 @@ class Secrets(object):
             return None
 
     @classmethod
-    def from_pubkey(cls, pubkey):
+    def from_pubkey(cls, pubkey, encoding=fc.DEFAULT_ENC):
         """
         Load secrets from a concatenated byte-string of public key + hash
         b'<public>:::<public_hash>'
@@ -530,6 +532,8 @@ class Secrets(object):
         Return:
             secrets <Secrets object>
         """
+        if isinstance(pubkey, str):
+            pubkey = pubkey.encode(encoding)
         pub, hash_key = pubkey.split(CCSEQ)
         if check_hash(pub, hash_key):
             return cls(public=pub, public_hash=hash_key)
@@ -537,7 +541,7 @@ class Secrets(object):
             return None
 
     @classmethod
-    def from_sesskey(cls, session):
+    def from_sesskey(cls, session, encoding=fc.DEFAULT_ENC):
         """
         Load secrets from a concatenated byte-string of session key + hash
         b'<session>:::<session_hash>'
@@ -551,6 +555,8 @@ class Secrets(object):
         Return:
             secrets <Secrets object>
         """
+        if isinstance(session, str):
+            session = session.encode(encoding)
         sess_key, sess_hash = session.split(CCSEQ)
         if check_hash(sess_key, sess_hash):
             return cls(session=sess_key, session_hash=sess_hash)
