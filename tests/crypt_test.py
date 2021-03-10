@@ -3,7 +3,9 @@ fabular - tests.crypt_test
 
 @author: phdenzel
 """
+import sys
 import os
+import base64
 import fabular.crypt as fcrypt
 from unittest import mock
 from tests.prototype import UnitTestPrototype
@@ -72,15 +74,36 @@ class CryptModuleTest(UnitTestPrototype):
 
     def test_RSA_from_key(self):
         """ # fabular.crypt.RSA_from_key """
-        pass  # TODO
+        pub, priv = fcrypt.generate_RSAk(file_id='server', password=None)
+
+        self.printf(pub)
+        rsapubk = fcrypt.RSA_from_key(pub)
+        self.assertIsInstance(rsapubk, object)
+        self.printout(rsapubk)
+
+        self.printf(priv)
+        rsaprivk = fcrypt.RSA_from_key(priv)
+        self.assertIsInstance(rsaprivk, object)
+        self.printout(rsaprivk)
 
     def test_RSA_encrypt(self):
         """ # fabular.crypt.RSA_encrypt """
-        pass
+        message = b'Eureka! Encrypt+Decrypt success!'
+        pub, priv = fcrypt.generate_RSAk(file_id='server', password=None)
+        self.printf((message, pub))
+        enc_msg = fcrypt.RSA_encrypt(message, fcrypt.RSA_from_key(pub))
+        self.assertNotEqual(message, enc_msg)
+        self.printout(enc_msg)
 
     def test_RSA_decrypt(self):
         """ # fabular.crypt.RSA_decrypt """
-        pass
+        message = b'Eureka! Encrypt+Decrypt success!'
+        pub, priv = fcrypt.generate_RSAk(file_id='server', password=None)
+        enc_msg = fcrypt.RSA_encrypt(message, fcrypt.RSA_from_key(pub))
+        self.printf((enc_msg, priv))
+        dec_msg = fcrypt.RSA_decrypt(enc_msg, fcrypt.RSA_from_key(priv))
+        self.assertEqual(message, dec_msg)
+        self.printout(dec_msg)
 
     def test_session_keys(self):
         """ # fabular.crypt.session_keys """
@@ -91,7 +114,17 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertTrue(h)
         self.assertIsInstance(k, bytes)
         self.assertIsInstance(h, bytes)
-        self.assertEqual(len(k), kw['block_size'])
+        self.assertEqual(len(k), 4*kw['block_size']//3 + 2)
+        self.printout((k, h))
+
+        kw = dict(fernet_key=False, block_size=32)
+        self.printf(kw)
+        k, h = fcrypt.session_keys(**kw)
+        self.assertTrue(k)
+        self.assertTrue(h)
+        self.assertIsInstance(k, bytes)
+        self.assertIsInstance(h, bytes)
+        self.assertEqual(len(k), 4*kw['block_size']//3 + 2)
         self.printout((k, h))
 
         kw = dict(fernet_key=True)
@@ -276,19 +309,74 @@ class CryptModuleTest(UnitTestPrototype):
 
     def test_Fernet_from_key(self):
         """ # fabular.crypt.Fernet_from_key """
-        pass  # TODO
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        self.printf(k)
+        cipher = fcrypt.Fernet_from_key(k)
+        self.assertIsNotNone(cipher)
+        self.printout(cipher)
+
+        k, _ = fcrypt.session_keys(fernet_key=False, block_size=32)
+        self.printf(k)
+        cipher = fcrypt.Fernet_from_key(k)
+        self.assertIsNotNone(cipher)
+        self.printout(cipher)
+
+        k, _ = fcrypt.session_keys(fernet_key=False, block_size=48)
+        self.printf(k)
+        with self.assertRaises(ValueError) as context:
+            fcrypt.Fernet_from_key(k)
+            self.assertTrue("base64" in context.exception)
 
     def test_Fernet_encrypt(self):
         """ # fabular.crypt.Fernet_encrypt """
-        pass
+        test_msg = "Eureka! Encrypt+Decrypt success!"
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        self.printf((test_msg, {'key': k}))
+        msg_enc = fcrypt.Fernet_encrypt(test_msg, key=k)
+        self.assertIsInstance(msg_enc, bytes)
+        self.assertIsNotNone(msg_enc)
+        self.assertNotEqual(msg_enc, test_msg)
+        self.printout(msg_enc)
+
+        self.printf((test_msg, {'key': None}))
+        msg = fcrypt.Fernet_encrypt(test_msg, key=None)
+        self.assertEqual(msg, test_msg)
+        self.printout(msg)
+
+        self.printf(('', {'key': k}))
+        msg = fcrypt.AES_encrypt('', key=k)
+        self.assertFalse(msg)
+        self.assertIsInstance(msg, type(''))
+        self.assertEqual(msg, '')
+        self.printout(msg)
 
     def test_Fernet_decrypt(self):
         """ # fabular.crypt.Fernet_decrypt """
-        pass
+        msg_enc = (
+            b'gAAAAABgSKNfvwqUVAQQPvrhSMpGMRV1XKuJxvcmvrnLezEjyGIPZX16NtJZexA-CEtSzhw9vYiC'
+            b'TDHwS7t7G0j8VW--QnF4Qf85pseqz5UVTHME0_IY4r0ZeCAcnQpxhyIWbucZEAXT')
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        test_msg = b"Eureka! Encrypt+Decrypt success!"
+        self.printf((msg_enc, {'key': k}))
+        msg_dec = fcrypt.Fernet_decrypt(msg_enc, key=k)
+        self.assertIsInstance(msg_dec, bytes)
+        self.assertEqual(msg_dec, test_msg)
+        self.printout(msg_dec)
+
+        self.printf((msg_enc, {'key': None}))
+        msg = fcrypt.Fernet_decrypt(msg_enc, key=None)
+        self.assertEqual(msg, msg_enc)
+        self.printout(msg)
+
+        self.printf(('', {'key': k}))
+        msg = fcrypt.Fernet_decrypt('', key=k)
+        self.assertFalse(msg)
+        self.assertIsInstance(msg, type(''))
+        self.assertEqual(msg, '')
+        self.printout(msg)
 
     def test_Secrets(self):
         """ # fabular.crypt.Secrets """
-
         kw = dict(size=1024)
         self.printf(kw)
         secret = fcrypt.Secrets.random(**kw)
@@ -301,8 +389,11 @@ class CryptModuleTest(UnitTestPrototype):
         prvk = secret.private.split(b'\n')[1]
         self.assertEqual(8*(len(pubk)+len(prvk)), kw['size'])
         self.assertIsInstance(secret.RSA, dict)
+        self.assertIsNone(secret.pw)
         self.printout(secret)
 
+    def test_Secrets_from_pubkey(self):
+        """ # fabular.crypt.Secrets.from_pubkey """
         pubkey = (b'-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADC'
                   b'BiQKBgQCuz76KzzPu8jjiannA4Ocb9Q8v\nr/0j+buHqaF43wkOBNlUywjX'
                   b'oFxZhIAUQQj/HjgKd2GebkHKEijQnl+b0jzUYmy9\nQ1yQcghhip9fKcP6o'
@@ -320,9 +411,12 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertIsNone(secret.private)
         self.assertIsNone(secret.session)
         self.assertIsNone(secret.session_hash)
+        self.assertIsNone(secret.pw)
         self.assertTrue(secret.check_hash())
         self.printout(secret)
 
+    def test_Secrets_from_sesskey(self):
+        """ # fabular.crypt.Secrets.from_sesskey """
         sesskey = (b'\x88\xe1A\xf8A\xab\xb0\xd1:::aef046b920c3bfdd45db12dca7726'
                    b'1128e3ab4a14c33133a072b6b01a29c3b65')
         self.printf(sesskey)
@@ -336,9 +430,12 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertIsNone(secret.private)
         self.assertIsNotNone(secret.session)
         self.assertIsNotNone(secret.session_hash)
+        self.assertIsNone(secret.pw)
         self.assertTrue(secret.check_hash())
         self.printout(secret)
 
+    def test_Secrets_from_keys(self):
+        """ # fabular.crypt.Secrets.from_keys """
         keys = (b'-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBi'
                 b'QKBgQCuz76KzzPu8jjiannA4Ocb9Q8v\nr/0j+buHqaF43wkOBNlUywjXoFxZ'
                 b'hIAUQQj/HjgKd2GebkHKEijQnl+b0jzUYmy9\nQ1yQcghhip9fKcP6oFLchNy'
@@ -358,8 +455,28 @@ class CryptModuleTest(UnitTestPrototype):
         self.assertIsNone(secret.private)
         self.assertIsNotNone(secret.session)
         self.assertIsNotNone(secret.session_hash)
+        self.assertIsNone(secret.pw)
         self.assertTrue(secret.check_hash())
         self.printout(secret)
+
+    def test_Secrets_RSA_encrypt(self):
+        """ # fabular.crypt.Secrets.RSA_encrypt """
+        message = b'Eureka! Encrypt+Decrypt success!'
+        secrets = fcrypt.Secrets.from_RSA_fileID(file_id='server', password=None)
+        self.printf(message)
+        enc_msg = secrets.RSA_encrypt(message)
+        self.assertNotEqual(message, enc_msg)
+        self.printout(enc_msg)
+
+    def test_Secrets_RSA_decrypt(self):
+        """ # fabular.crypt.Secrets.RSA_decrypt """
+        message = b'Eureka! Encrypt+Decrypt success!'
+        secrets = fcrypt.Secrets.from_RSA_fileID(file_id='server', password=None)
+        enc_msg = secrets.RSA_encrypt(message)
+        self.printf((enc_msg))
+        dec_msg = secrets.RSA_decrypt(enc_msg)
+        self.assertEqual(message, dec_msg)
+        self.printout(dec_msg)
 
     def test_Secrets_AES_encrypt(self):
         """ # fabular.crypt.Secrets.AES_encrypt """
@@ -416,6 +533,93 @@ class CryptModuleTest(UnitTestPrototype):
         self.printf(msg_enc)
         msg_dec = secret.AES_decrypt(msg_enc)
         self.assertEqual(msg_dec, msg)
+        self.printout(msg_dec)
+
+    def test_Secrets_Fernet_encrypt(self):
+        """ # fabular.crypt.Secrets.Fernet_encrypt """
+        test_msg = "Eureka! Encrypt+Decrypt success!"
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets(session=k)
+        self.printf(test_msg)
+        msg_enc = secrets.Fernet_encrypt(test_msg)
+        self.assertIsInstance(msg_enc, bytes)
+        self.assertIsNotNone(msg_enc)
+        self.assertNotEqual(msg_enc, test_msg)
+        self.printout(msg_enc)
+
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets(session=k)
+        self.printf((test_msg, {'key': None}))
+        msg = secrets.Fernet_encrypt(test_msg, key=None)
+        self.assertIsInstance(msg, bytes)
+        self.assertIsNotNone(msg)
+        self.assertNotEqual(msg, test_msg)
+        self.printout(msg)
+
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets(session=k)
+        self.printf(('', {'key': b''}))
+        msg = secrets.Fernet_encrypt('', key=b'')
+        self.assertFalse(msg)
+        self.assertIsInstance(msg, type(''))
+        self.assertEqual(msg, '')
+        self.printout(msg)
+
+    def test_Secrets_Fernet_decrypt(self):
+        """ # fabular.crypt.Secrets.Fernet_decrypt """
+        msg_enc = (
+            b'gAAAAABgSKNfvwqUVAQQPvrhSMpGMRV1XKuJxvcmvrnLezEjyGIPZX16NtJZexA-CEtSzhw9vYiC'
+            b'TDHwS7t7G0j8VW--QnF4Qf85pseqz5UVTHME0_IY4r0ZeCAcnQpxhyIWbucZEAXT')
+        test_msg = b"Eureka! Encrypt+Decrypt success!"
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets(session=k)
+        self.printf((msg_enc))
+        msg_dec = secrets.Fernet_decrypt(msg_enc)
+        self.assertIsInstance(msg_dec, bytes)
+        self.assertEqual(msg_dec, test_msg)
+        self.printout(msg_dec)
+
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets(session=k)
+        self.printf((msg_enc, {'key': None}))
+        msg = secrets.Fernet_decrypt(msg_enc, key=None)
+        self.assertEqual(msg, test_msg)
+        self.printout(msg)
+
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets(session=k)
+        self.printf(('', {'key': b''}))
+        msg = fcrypt.Fernet_decrypt('', key=b'')
+        self.assertFalse(msg)
+        self.assertIsInstance(msg, type(''))
+        self.assertEqual(msg, '')
+        self.printout(msg)
+
+    def test_Secrets_hybrid_encrypt(self):
+        """ # fabular.crypt.Secrets.hybrid_encrypt """
+        test_msg = b"Eureka! Encrypt+Decrypt success!"
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets.from_RSA_fileID(file_id='server', password=None)
+        secrets.session = k
+        self.printf(test_msg)
+        msg_enc = secrets.hybrid_encrypt(test_msg)
+        self.assertIsInstance(msg_enc, bytes)
+        self.assertIsNotNone(msg_enc)
+        self.assertNotEqual(msg_enc, test_msg)
+        self.printout(msg_enc)
+
+    def test_Secrets_hybrid_decrypt(self):
+        """ # fabular.crypt.Secrets.hybrid_decrypt """
+        test_msg = b"Eureka! Encrypt+Decrypt success!"
+        k = b'MUwV2jgqHXDsxcz-UWtyyy9tnTI5PUmh-eCRAWxPHf4='
+        secrets = fcrypt.Secrets.from_RSA_fileID(file_id='server', password=None)
+        secrets.session = k
+        msg_enc = secrets.hybrid_encrypt(test_msg)
+        self.printf((test_msg, msg_enc))
+        msg_dec = secrets.hybrid_decrypt(msg_enc)
+        self.assertIsInstance(msg_enc, bytes)
+        self.assertIsNotNone(msg_dec)
+        self.assertNotEqual(msg_dec, test_msg)
         self.printout(msg_dec)
 
 

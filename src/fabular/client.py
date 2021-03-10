@@ -263,7 +263,7 @@ def main():
     pw = pw_prompt(confirm=True)
 
     # RSA keys
-    client_secrets = Secrets.from_rsa_fileID(f'{username}')
+    client_secrets = Secrets.from_RSA_fileID(f'{username}', password=pw)
     client_secrets.pw = pw
     if not client_secrets.check_hash():
         sys.exit()
