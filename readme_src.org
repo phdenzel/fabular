@@ -64,7 +64,3 @@ or with ~pytest~:
 #+BEGIN_SRC bash
 [pipenv run] pytest -v --cov=fabular --cov-report=html
 #+END_SRC
-
-
-# ** TODO
-# - integrate bandit: ~pipenv run bandit fabular -r~

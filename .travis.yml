@@ -15,4 +15,4 @@ before_script:
 
 script:
   - pipenv run pytest -v --cov=fabular
-#  - pipenv run bandit fabular -r
+  - pipenv run bandit src/ tests/ -r
