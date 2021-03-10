@@ -19,7 +19,7 @@ setup(
     name="fabular",
     author="Philipp Denzel",
     author_email="phdenzel@gmail.com",
-    version="0.0.dev1",
+    version="0.0.1",
     description=("A command-line chat app for secure communication "
                  "between you and your friends!"),
     long_description=ld['data'],
