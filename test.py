@@ -26,4 +26,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    # main()
+
+    import sys
+    import fabular.config as fc
+    from pyngrok import ngrok
+    
+    tcp_tunnel = ngrok.connect(fc.PORT, "tcp")
+    print(tcp_tunnel.__dict__)
+
+    

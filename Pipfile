@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 cryptography = "*"
+pyngrok = "*"
 
 [dev-packages]
 pytest = "*"

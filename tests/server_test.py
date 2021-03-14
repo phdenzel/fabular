@@ -12,6 +12,7 @@ from fabular.client import Clients
 from fabular.crypt import Secrets
 from tests.prototype import UnitTestPrototype
 from tests.prototype import SequentialTestLoader
+fc.ALLOW_UNKNOWN = True
 
 
 class ServerModuleTest(UnitTestPrototype):

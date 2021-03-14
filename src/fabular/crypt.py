@@ -49,7 +49,7 @@ def pw_prompt(confirm=True):
 def generate_RSAk(size=fc.BLOCK_SIZE,
                   password=None,
                   file_id='id',
-                  file_dir='.fabular/rsa'):
+                  file_dir=fc.RSA_DIR):
     """
     Generate a RSA key for server-client handshake,
     from file if it exists or from a random number

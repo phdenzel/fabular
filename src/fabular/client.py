@@ -7,17 +7,11 @@ fabular - client
 import sys
 import socket
 import threading
-import getpass
+from fabular.comm import fab_log, is_query, cmd_signals
+from fabular.crypt import pw_prompt, Secrets
+from fabular.config import HOST, PORT
 import fabular.config as fc
-from fabular.config import HOST
-from fabular.config import PORT
-from fabular.comm import fab_log
-from fabular.comm import is_query
-from fabular.comm import cmd_signals
-from fabular.crypt import pw_prompt
-from fabular.crypt import generate_RSAk
-from fabular.crypt import get_hash
-from fabular.crypt import Secrets
+
 if HOST is None:
     HOST = fc.LOCALHOST
 
@@ -60,7 +54,7 @@ class Clients(object):
             None
 
         Return:
-            socket <socket.Socket object> - username's client socket
+            socket <socket.socket object> - username's client socket
         """
         return self.socket[key]
 
@@ -70,7 +64,7 @@ class Clients(object):
 
         Args:
             key <str> - username of the client
-            val <socket.Socket object> - username's client socket
+            val <socket.socket object> - username's client socket
 
         Kwargs/Return:
             None
@@ -115,7 +109,7 @@ class Clients(object):
             None
 
         Return:
-            socket <socket.Socket object> - username's client socket
+            socket <socket.socket object> - username's client socket
         """
         socket = None
         if key in self.socket:
@@ -143,7 +137,7 @@ def connect_server(host, port):
         None
 
     Return:
-        client <socket.Socket object> - client socket
+        client <socket.socket object> - client socket
     """
     if not isinstance(port, int):
         port = int(port)
@@ -158,7 +152,7 @@ def receive(client):
     Message recipience loop; handles special keys and reacts accordingly
 
     Args:
-        client <socket.Socket object> - client socket
+        client <socket.socket object> - client socket
 
     Kwargs/Return:
         None
@@ -204,7 +198,9 @@ def receive(client):
                     fab_log('', verbose_mode=3)
                     accepted = True
                 elif is_query(message, 'Q:KILL'):
-                    pass
+                    fab_log('LERR', verbose_mode=3)
+                    accepted = False
+                    stop_threads = True
                 else:
                     if decode:
                         message = client_secrets.AES_decrypt(message)
@@ -222,7 +218,7 @@ def write(client):
     Triggers when <stop_threads> is False and <accepted> is True
 
     Args:
-        client <socket.Socket object> - client socket
+        client <socket.socket object> - client socket
 
     Kwargs/Return:
         None
@@ -257,7 +253,7 @@ def main():
     accepted = False
     decode = False
     stop_threads = False
-    
+
     # Name definitions
     username = input('Enter your username: ')
     pw = pw_prompt(confirm=True)

@@ -14,9 +14,10 @@ from fabular.config import MSG_SUFFIX as SUFFIX
 fab_msgs = {
     'CONN': '{prefix}Connected with {{}}{suffix}',
     'USRN': '{prefix}Username set to {{}}{suffix}',
-    'CUSR': '{prefix}Username already taken, choose another{suffix}',
+    'CUSR': '{prefix}Username not allowed, choose another{suffix}',
     'DCRY': '{prefix}Setting up encryption{suffix}',
     'FDCR': '{prefix}Encryption setup failed, proceeding without{suffix}',
+    'LERR': '{prefix}Login error: Username or public key mismatch{suffix}',
     'WRYT': ('{prefix}Ready to chat.\n'
              'Should you wish to leave, '
              r'type one of [\q | \quit | \exit | \leave]{suffix}'),
