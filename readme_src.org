@@ -4,7 +4,7 @@
 * fabular
 
 #+BEGIN_export markdown
-[![Build Status](https://travis-ci.com/phdenzel/fabular.svg?token=StKyxTumiWU6dwAxmZqF&branch=master)](https://travis-ci.com/phdenzel/fabular)
+[![Build Status](https://travis-ci.com/phdenzel/fabular.svg?branch=master)](https://travis-ci.com/phdenzel/fabular)
 #+END_export
 
 
@@ -64,3 +64,9 @@ or with ~pytest~:
 #+BEGIN_SRC bash
 [pipenv run] pytest -v --cov=fabular --cov-report=html
 #+END_SRC
+
+
+# TODO:
+# - tests for ngrok
+# - coverage tests for stability fixes
+# - tests for all server auxiliary function

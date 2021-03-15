@@ -1,7 +1,7 @@
 MODULE := fabular
 
 pkg: readme
-	@pipenv run python setup.py sdist #bdist bdist_wheel
+	@pipenv run python setup.py sdist bdist_wheel
 
 dev: readme
 	@pipenv install --dev

@@ -13,6 +13,7 @@ coverage = "*"
 pytest-cov = "*"
 bandit = "*"
 check-manifest = "*"
+twine = "*"
 
 [requires]
 python_version = "3.8"
